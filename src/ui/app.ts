@@ -83,8 +83,8 @@ export function createGameApp(root: HTMLElement): void {
 
   const syncHudHero = (hero: HeroDefinition): void => {
     hud.name.textContent = hero.name;
-    hud.avatar.style.background = hero.color;
-    hud.avatar.innerHTML = renderAvatarContent(hero);
+    hud.avatar.style.background = hero.portraitSrc || hero.portraitSrcSm ? 'transparent' : hero.color;
+    hud.avatar.innerHTML = renderAvatarContent(hero, 'sm');
   };
 
   const startGame = (): void => {
@@ -391,8 +391,8 @@ function renderPlayerStatsCard(stats: PlayerStats): string {
   return `
     <article class="stats-card">
       <header class="stats-card__header">
-        <span class="stats-card__avatar" style="background:${accent}">
-          ${hero ? renderAvatarContent(hero) : displayName.slice(0, 1)}
+        <span class="stats-card__avatar"${hero?.portraitSrc || hero?.portraitSrcSm ? '' : ` style="background:${accent}"`}>
+          ${hero ? renderAvatarContent(hero, 'sm') : displayName.slice(0, 1)}
         </span>
         <div>
           <h3 class="stats-card__name">${displayName}</h3>
@@ -412,9 +412,11 @@ function renderPlayerStatsCard(stats: PlayerStats): string {
 }
 
 function renderHeroCard(hero: HeroDefinition, selected: boolean): string {
+  const hasPortrait = Boolean(hero.portraitSrc || hero.portraitSrcSm);
+
   return `
     <button class="hero-card" type="button" data-hero="${hero.id}" aria-pressed="${selected}">
-      <span class="hero-card__avatar" style="background:${hero.color}">${renderAvatarContent(hero)}</span>
+      <span class="hero-card__avatar"${hasPortrait ? '' : ` style="background:${hero.color}"`}>${renderAvatarContent(hero, 'lg')}</span>
       <span class="hero-card__body">
         <span class="hero-card__name">${hero.name}</span>
         <span class="hero-card__tagline">${hero.tagline}</span>
@@ -430,9 +432,17 @@ function renderHeroCard(hero: HeroDefinition, selected: boolean): string {
   `;
 }
 
-function renderAvatarContent(hero: HeroDefinition): string {
-  if (hero.portraitSrc) {
-    return `<img src="${hero.portraitSrc}" alt="" />`;
+function renderAvatarContent(
+  hero: HeroDefinition,
+  size: 'lg' | 'sm' = 'lg',
+): string {
+  const src =
+    size === 'sm'
+      ? (hero.portraitSrcSm ?? hero.portraitSrc)
+      : (hero.portraitSrc ?? hero.portraitSrcSm);
+
+  if (src) {
+    return `<img class="hero-portrait" src="${src}" alt="" draggable="false" />`;
   }
 
   return hero.initials;

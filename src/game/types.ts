@@ -79,6 +79,8 @@ export type HeroDefinition = {
   initials: string;
   tagline: string;
   portraitSrc?: string;
+  /** Smaller portrait for HUD / compact UI. Falls back to portraitSrc. */
+  portraitSrcSm?: string;
   sprites?: HeroSprites;
   color: string;
   accent: string;

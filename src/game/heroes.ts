@@ -2,14 +2,16 @@ import type { HeroDefinition } from './types';
 
 const bigBroBase = '/assets/sprites/heroes/big_bro';
 const lilBroBase = '/assets/sprites/heroes/lil_bro';
+const profilesBase = '/assets/ui/profiles';
 
 export const heroes: HeroDefinition[] = [
   {
     id: 'hero-one',
-    name: 'Antonis',
+    name: 'Αντώνης',
     initials: 'A',
     tagline: 'Ισχυρότερος · Αργότερος',
-    portraitSrc: `${bigBroBase}/hero_big_bro_idle_01.png`,
+    portraitSrc: `${profilesBase}/profile_antonis_big_bro_512.png`,
+    portraitSrcSm: `${profilesBase}/profile_antonis_big_bro_256.png`,
     sprites: {
       idle: [`${bigBroBase}/hero_big_bro_idle_01.png`],
       run: [
@@ -33,10 +35,11 @@ export const heroes: HeroDefinition[] = [
   },
   {
     id: 'hero-two',
-    name: 'Panagiotis',
+    name: 'Παναγιώτης',
     initials: 'P',
     tagline: 'Ταχύτερος · Ασθενέστερος',
-    portraitSrc: `${lilBroBase}/hero_little_bro_idle_01.png`,
+    portraitSrc: `${profilesBase}/profile_panagiotis_little_bro_512.png`,
+    portraitSrcSm: `${profilesBase}/profile_panagiotis_little_bro_256.png`,
     sprites: {
       idle: [`${lilBroBase}/hero_little_bro_idle_01.png`],
       run: [

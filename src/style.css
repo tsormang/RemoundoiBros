@@ -60,7 +60,7 @@
 
 .hud__profile {
   display: grid;
-  grid-template-columns: 48px 1fr;
+  grid-template-columns: 52px 1fr;
   gap: 10px;
   align-items: start;
   border: 1px solid var(--line);
@@ -74,20 +74,23 @@
 .hud__avatar {
   display: grid;
   place-items: center;
-  width: 48px;
-  height: 48px;
+  width: 52px;
+  height: 52px;
   overflow: hidden;
   border-radius: 50%;
   color: var(--ink);
   font-size: 1.1rem;
   font-weight: 900;
+  background: transparent;
+  box-shadow: 0 0 0 2px rgba(245, 241, 232, 0.18);
 }
 
-.hud__avatar img {
+.hud__avatar img,
+.hud__avatar .hero-portrait {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  image-rendering: pixelated;
+  display: block;
 }
 
 .hud__info {
@@ -324,14 +327,15 @@
 .hero-card {
   display: grid;
   gap: 12px;
+  justify-items: center;
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: rgba(245, 241, 232, 0.04);
   color: var(--text);
-  padding: 14px;
+  padding: 16px 14px;
   cursor: pointer;
-  text-align: left;
+  text-align: center;
 }
 
 .hero-card[aria-pressed='true'] {
@@ -343,25 +347,29 @@
 .hero-card__avatar {
   display: grid;
   place-items: center;
-  width: 64px;
-  height: 64px;
+  width: 112px;
+  height: 112px;
   overflow: hidden;
   border-radius: 50%;
   color: var(--ink);
   font-size: 1.4rem;
   font-weight: 900;
+  background: transparent;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
 }
 
-.hero-card__avatar img {
+.hero-card__avatar img,
+.hero-card__avatar .hero-portrait {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  image-rendering: pixelated;
+  display: block;
 }
 
 .hero-card__body {
   display: grid;
   gap: 4px;
+  width: 100%;
 }
 
 .hero-card__name {
@@ -383,6 +391,7 @@
 .hero-card__stats {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 8px 12px;
   margin-top: 6px;
   color: var(--muted);
@@ -427,21 +436,24 @@
 .stats-card__avatar {
   display: grid;
   place-items: center;
-  width: 48px;
-  height: 48px;
+  width: 52px;
+  height: 52px;
   overflow: hidden;
   border-radius: 50%;
   color: var(--ink);
   font-size: 1.1rem;
   font-weight: 900;
   flex-shrink: 0;
+  background: transparent;
+  box-shadow: 0 0 0 2px rgba(245, 241, 232, 0.16);
 }
 
-.stats-card__avatar img {
+.stats-card__avatar img,
+.stats-card__avatar .hero-portrait {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  image-rendering: pixelated;
+  display: block;
 }
 
 .stats-card__name {
@@ -538,14 +550,19 @@
   }
 
   .hud__profile {
-    grid-template-columns: 40px 1fr;
+    grid-template-columns: 44px 1fr;
     padding: 8px;
   }
 
   .hud__avatar {
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     font-size: 0.95rem;
+  }
+
+  .hero-card__avatar {
+    width: 96px;
+    height: 96px;
   }
 
   .start-screen__heroes {
