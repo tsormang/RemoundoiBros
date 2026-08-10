@@ -24,8 +24,13 @@ type HudElements = {
   xpFill: HTMLElement;
 };
 
+type ScreenOrientationMode = 'portrait' | 'landscape';
+
+const ORIENTATION_STORAGE_KEY = 'remoundoi-orientation';
+
 export function createGameApp(root: HTMLElement): void {
   let selectedHero = heroes[0];
+  let preferredOrientation = loadPreferredOrientation();
   let game: Game | null = null;
   let animationFrame = 0;
   let lastTime = performance.now();
@@ -33,13 +38,14 @@ export function createGameApp(root: HTMLElement): void {
 
   root.innerHTML = renderShell();
 
+  const shell = root.querySelector<HTMLElement>('.game-shell');
   const canvas = root.querySelector<HTMLCanvasElement>('[data-game-canvas]');
   const stage = root.querySelector<HTMLElement>('[data-stage]');
   const overlay = root.querySelector<HTMLElement>('[data-overlay]');
   const touchNub = root.querySelector<HTMLElement>('[data-touch-nub]');
   const hud = getHudElements(root);
 
-  if (!canvas || !stage || !overlay || !touchNub) {
+  if (!shell || !canvas || !stage || !overlay || !touchNub) {
     throw new Error('Game UI failed to mount.');
   }
 
@@ -52,13 +58,23 @@ export function createGameApp(root: HTMLElement): void {
   const keyboard = new KeyboardInput();
   const touch = new TouchInput(stage, touchNub);
 
+  const applyLayout = (): void => {
+    const playing = game !== null;
+    const rotated = playing && needsForcedRotation(preferredOrientation);
+    shell.classList.toggle('is-rotated', rotated);
+    touch.setRotation(rotated ? 90 : 0);
+  };
+
   const resize = (): void => {
-    const rect = stage.getBoundingClientRect();
+    applyLayout();
+    const fallback = getPlaySize(preferredOrientation, game !== null);
+    const width = Math.max(1, stage.clientWidth || fallback.width);
+    const height = Math.max(1, stage.clientHeight || fallback.height);
     const scale = window.devicePixelRatio || 1;
-    canvas.width = Math.floor(rect.width * scale);
-    canvas.height = Math.floor(rect.height * scale);
+    canvas.width = Math.max(1, Math.floor(width * scale));
+    canvas.height = Math.max(1, Math.floor(height * scale));
     context.setTransform(scale, 0, 0, scale, 0, 0);
-    game?.resize(rect.width, rect.height);
+    game?.resize(width, height);
   };
 
   const setHudVisible = (visible: boolean): void => {
@@ -72,10 +88,10 @@ export function createGameApp(root: HTMLElement): void {
   };
 
   const startGame = (): void => {
-    const rect = stage.getBoundingClientRect();
+    const size = getPlaySize(preferredOrientation, true);
     game = new Game({
-      width: rect.width,
-      height: rect.height,
+      width: size.width,
+      height: size.height,
       hero: selectedHero,
     });
     runSaved = false;
@@ -83,12 +99,16 @@ export function createGameApp(root: HTMLElement): void {
     syncHudHero(selectedHero);
     setHudVisible(true);
     overlay.hidden = true;
+    resize();
+    void tryLockOrientation(preferredOrientation);
   };
 
   const returnToMenu = (): void => {
     game = null;
     setHudVisible(false);
+    void tryUnlockOrientation();
     showOverlay(null);
+    resize();
   };
 
   const bindHeroSelect = (container: HTMLElement): void => {
@@ -105,12 +125,32 @@ export function createGameApp(root: HTMLElement): void {
     }
   };
 
+  const bindOrientationSelect = (container: HTMLElement): void => {
+    const buttons = [
+      ...container.querySelectorAll<HTMLButtonElement>('[data-orientation]'),
+    ];
+
+    for (const button of buttons) {
+      button.addEventListener('click', () => {
+        const next = parseOrientation(button.dataset.orientation);
+        if (!next) {
+          return;
+        }
+
+        preferredOrientation = next;
+        savePreferredOrientation(preferredOrientation);
+        updateOrientationButtons(buttons, preferredOrientation);
+      });
+    }
+  };
+
   const showOverlay = (snapshot: GameSnapshot | null): void => {
     overlay.hidden = false;
 
     if (!snapshot) {
-      overlay.innerHTML = renderStartScreen(selectedHero);
+      overlay.innerHTML = renderStartScreen(selectedHero, preferredOrientation);
       bindHeroSelect(overlay);
+      bindOrientationSelect(overlay);
       overlay
         .querySelector<HTMLButtonElement>('[data-start]')
         ?.addEventListener('click', startGame);
@@ -224,6 +264,9 @@ export function createGameApp(root: HTMLElement): void {
   };
 
   window.addEventListener('resize', resize);
+  window.addEventListener('orientationchange', resize);
+  window.visualViewport?.addEventListener('resize', resize);
+  window.visualViewport?.addEventListener('scroll', resize);
   resize();
   setHudVisible(false);
   showOverlay(null);
@@ -233,6 +276,10 @@ export function createGameApp(root: HTMLElement): void {
     keyboard.destroy();
     touch.destroy();
     cancelAnimationFrame(animationFrame);
+    window.removeEventListener('resize', resize);
+    window.removeEventListener('orientationchange', resize);
+    window.visualViewport?.removeEventListener('resize', resize);
+    window.visualViewport?.removeEventListener('scroll', resize);
   });
 }
 
@@ -273,7 +320,10 @@ function renderShell(): string {
   `;
 }
 
-function renderStartScreen(selectedHero: HeroDefinition): string {
+function renderStartScreen(
+  selectedHero: HeroDefinition,
+  orientation: ScreenOrientationMode,
+): string {
   return `
     <section class="start-screen dialog dialog--start" aria-modal="true">
       <header class="start-screen__brand">
@@ -282,6 +332,29 @@ function renderStartScreen(selectedHero: HeroDefinition): string {
       </header>
       <div class="start-screen__heroes" aria-label="Επιλογή ήρωα">
         ${heroes.map((hero) => renderHeroCard(hero, hero.id === selectedHero.id)).join('')}
+      </div>
+      <div class="start-screen__orientation" aria-label="Προσανατολισμός οθόνης">
+        <p class="start-screen__orientation-label">Προσανατολισμός παιχνιδιού</p>
+        <div class="orientation-toggle" role="group">
+          <button
+            class="orientation-button"
+            type="button"
+            data-orientation="portrait"
+            aria-pressed="${orientation === 'portrait'}"
+          >
+            <span class="orientation-button__icon orientation-button__icon--portrait" aria-hidden="true"></span>
+            <span class="orientation-button__label">Κατακόρυφα</span>
+          </button>
+          <button
+            class="orientation-button"
+            type="button"
+            data-orientation="landscape"
+            aria-pressed="${orientation === 'landscape'}"
+          >
+            <span class="orientation-button__icon" aria-hidden="true"></span>
+            <span class="orientation-button__label">Οριζόντια</span>
+          </button>
+        </div>
       </div>
       <p class="start-screen__hint">Κινήσου με WASD, βέλη ή άγγιγμα. Οι επιθέσεις στοχεύουν αυτόματα.</p>
       <div class="dialog-actions">
@@ -434,10 +507,110 @@ function updateHeroButtons(
   }
 }
 
+function updateOrientationButtons(
+  buttons: HTMLButtonElement[],
+  orientation: ScreenOrientationMode,
+): void {
+  for (const button of buttons) {
+    button.setAttribute(
+      'aria-pressed',
+      String(button.dataset.orientation === orientation),
+    );
+  }
+}
+
 function mergeInputs(keyboard: InputState, touch: InputState): InputState {
   if (touch.move.x !== 0 || touch.move.y !== 0) {
     return touch;
   }
 
   return keyboard;
+}
+
+function getViewportSize(): { width: number; height: number } {
+  const viewport = window.visualViewport;
+  return {
+    width: Math.max(1, viewport?.width ?? window.innerWidth),
+    height: Math.max(1, viewport?.height ?? window.innerHeight),
+  };
+}
+
+function isDevicePortrait(): boolean {
+  const { width, height } = getViewportSize();
+  return height >= width;
+}
+
+function needsForcedRotation(preferred: ScreenOrientationMode): boolean {
+  const devicePortrait = isDevicePortrait();
+  return preferred === 'landscape' ? devicePortrait : !devicePortrait;
+}
+
+function getPlaySize(
+  preferred: ScreenOrientationMode,
+  playing: boolean,
+): { width: number; height: number } {
+  const viewport = getViewportSize();
+
+  if (playing && needsForcedRotation(preferred)) {
+    return { width: viewport.height, height: viewport.width };
+  }
+
+  return viewport;
+}
+
+function parseOrientation(value: string | undefined): ScreenOrientationMode | null {
+  if (value === 'portrait' || value === 'landscape') {
+    return value;
+  }
+
+  return null;
+}
+
+function loadPreferredOrientation(): ScreenOrientationMode {
+  try {
+    return parseOrientation(localStorage.getItem(ORIENTATION_STORAGE_KEY) ?? undefined) ??
+      (isDevicePortrait() ? 'portrait' : 'landscape');
+  } catch {
+    return isDevicePortrait() ? 'portrait' : 'landscape';
+  }
+}
+
+function savePreferredOrientation(orientation: ScreenOrientationMode): void {
+  try {
+    localStorage.setItem(ORIENTATION_STORAGE_KEY, orientation);
+  } catch {
+    // Ignore storage failures (private mode, quota, etc.).
+  }
+}
+
+async function tryLockOrientation(orientation: ScreenOrientationMode): Promise<void> {
+  const screenOrientation = window.screen.orientation as
+    | ScreenOrientation
+    | undefined;
+
+  if (!screenOrientation || typeof screenOrientation.lock !== 'function') {
+    return;
+  }
+
+  try {
+    await screenOrientation.lock(orientation);
+  } catch {
+    // Locking often requires fullscreen / installed PWA; CSS rotation is the fallback.
+  }
+}
+
+async function tryUnlockOrientation(): Promise<void> {
+  const screenOrientation = window.screen.orientation as
+    | ScreenOrientation
+    | undefined;
+
+  if (!screenOrientation || typeof screenOrientation.unlock !== 'function') {
+    return;
+  }
+
+  try {
+    screenOrientation.unlock();
+  } catch {
+    // Ignore unlock failures.
+  }
 }

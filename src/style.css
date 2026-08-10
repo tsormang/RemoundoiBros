@@ -1,19 +1,41 @@
 #app {
-  min-height: 100vh;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  min-height: 100dvh;
 }
 
 .game-shell {
-  min-height: 100vh;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  min-height: 100dvh;
+  overflow: hidden;
   background:
     radial-gradient(circle at 14% 18%, rgba(102, 217, 163, 0.18), transparent 28%),
     radial-gradient(circle at 76% 24%, rgba(244, 201, 93, 0.14), transparent 30%),
     linear-gradient(135deg, #101318 0%, #171c23 52%, #12151a 100%);
 }
 
+/* Force playfield orientation when device orientation differs from preference. */
+.game-shell.is-rotated {
+  position: fixed;
+  top: 0;
+  left: 100%;
+  width: 100dvh;
+  height: 100dvw;
+  min-height: 0;
+  transform: rotate(90deg);
+  transform-origin: top left;
+}
+
 .stage-wrap {
   position: relative;
+  width: 100%;
+  height: 100%;
   min-width: 0;
-  min-height: 100vh;
+  min-height: 0;
 }
 
 .game-canvas {
@@ -28,7 +50,7 @@
   inset: 16px auto auto 16px;
   display: grid;
   gap: 8px;
-  width: min(280px, calc(100vw - 32px));
+  width: min(280px, calc(100% - 32px));
   pointer-events: none;
 }
 
@@ -239,6 +261,64 @@
   margin: 16px 0;
   text-align: center;
   font-size: 0.88rem;
+}
+
+.start-screen__orientation {
+  margin: 16px 0 4px;
+}
+
+.start-screen__orientation-label {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.orientation-toggle {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.orientation-button {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  min-height: 64px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(245, 241, 232, 0.04);
+  color: var(--text);
+  padding: 10px 8px;
+  cursor: pointer;
+}
+
+.orientation-button[aria-pressed='true'] {
+  border-color: var(--gold);
+  background: rgba(244, 201, 93, 0.12);
+  box-shadow: 0 0 0 1px rgba(244, 201, 93, 0.25);
+}
+
+.orientation-button__icon {
+  display: block;
+  width: 28px;
+  height: 20px;
+  border: 2px solid currentColor;
+  border-radius: 3px;
+  opacity: 0.9;
+}
+
+.orientation-button__icon--portrait {
+  width: 16px;
+  height: 26px;
+}
+
+.orientation-button__label {
+  font-size: 0.82rem;
+  font-weight: 800;
 }
 
 .hero-card {
@@ -454,7 +534,7 @@
 @media (max-width: 560px) {
   .hud {
     inset: 10px auto auto 10px;
-    width: min(240px, calc(100vw - 20px));
+    width: min(240px, calc(100% - 20px));
   }
 
   .hud__profile {

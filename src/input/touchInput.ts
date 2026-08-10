@@ -7,6 +7,7 @@ export class TouchInput {
   private activePointerId: number | null = null;
   private origin: Vec2 = { x: 0, y: 0 };
   private move: Vec2 = { x: 0, y: 0 };
+  private rotationDegrees = 0;
 
   constructor(root: HTMLElement, nub: HTMLElement) {
     this.root = root;
@@ -15,6 +16,10 @@ export class TouchInput {
     this.root.addEventListener('pointermove', this.handlePointerMove);
     this.root.addEventListener('pointerup', this.handlePointerUp);
     this.root.addEventListener('pointercancel', this.handlePointerUp);
+  }
+
+  setRotation(degrees: number): void {
+    this.rotationDegrees = ((degrees % 360) + 360) % 360;
   }
 
   getState(): InputState {
@@ -54,10 +59,10 @@ export class TouchInput {
       return;
     }
 
-    const raw = {
+    const raw = this.toStageDelta({
       x: event.clientX - this.origin.x,
       y: event.clientY - this.origin.y,
-    };
+    });
     const distance = Math.min(Math.hypot(raw.x, raw.y), 38);
     this.move = normalize(raw);
     this.nub.style.transform = `translate(${this.move.x * distance}px, ${
@@ -74,4 +79,17 @@ export class TouchInput {
     this.move = { x: 0, y: 0 };
     this.nub.style.transform = 'translate(0, 0)';
   };
+
+  private toStageDelta(delta: Vec2): Vec2 {
+    // CSS rotate(90deg) maps screen right→stage down and screen down→stage left.
+    if (this.rotationDegrees === 90) {
+      return { x: delta.y, y: -delta.x };
+    }
+
+    if (this.rotationDegrees === 270) {
+      return { x: -delta.y, y: delta.x };
+    }
+
+    return delta;
+  }
 }
