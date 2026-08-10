@@ -1,0 +1,72 @@
+{
+  "frameSize": {
+    "width": 32,
+    "height": 32
+  },
+  "pickups": [
+    {
+      "id": "magnet",
+      "shortcut": "M",
+      "file": "pickup_effect_magnet_m.png",
+      "description": "Pulls all gems to the player for about 3 seconds.",
+      "behavior": {
+        "durationMs": 3000
+      },
+      "pickupRadius": 15,
+      "visibleBounds": {
+        "x": 1,
+        "y": 0,
+        "width": 29,
+        "height": 31
+      }
+    },
+    {
+      "id": "bomb",
+      "shortcut": "B",
+      "file": "pickup_effect_bomb_b.png",
+      "description": "Kills nearby enemies; those kills drop normal gems only.",
+      "behavior": {
+        "drops": "normal_gems_only"
+      },
+      "pickupRadius": 15,
+      "visibleBounds": {
+        "x": 2,
+        "y": 0,
+        "width": 28,
+        "height": 31
+      }
+    },
+    {
+      "id": "chest",
+      "shortcut": "C",
+      "file": "pickup_effect_chest_c.png",
+      "description": "Instantly applies one random upgrade.",
+      "behavior": {
+        "upgrade": "random_instant"
+      },
+      "pickupRadius": 15,
+      "visibleBounds": {
+        "x": 0,
+        "y": 1,
+        "width": 31,
+        "height": 30
+      }
+    },
+    {
+      "id": "book",
+      "shortcut": "K",
+      "file": "pickup_effect_book_k.png",
+      "description": "Grants a full level-up and opens upgrade choice.",
+      "behavior": {
+        "levelUp": "full"
+      },
+      "pickupRadius": 15,
+      "visibleBounds": {
+        "x": 1,
+        "y": 1,
+        "width": 30,
+        "height": 29
+      }
+    }
+  ]
+}
