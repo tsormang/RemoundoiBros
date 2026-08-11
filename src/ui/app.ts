@@ -46,9 +46,24 @@ export function createGameApp(root: HTMLElement): void {
   const overlay = root.querySelector<HTMLElement>('[data-overlay]');
   const touchStick = root.querySelector<HTMLElement>('[data-touch-stick]');
   const touchNub = root.querySelector<HTMLElement>('[data-touch-nub]');
+  const orientationControl = root.querySelector<HTMLElement>(
+    '[data-orientation-control]',
+  );
+  const leaveGameButton = root.querySelector<HTMLButtonElement>(
+    '[data-leave-game]',
+  );
   const hud = getHudElements(root);
 
-  if (!shell || !canvas || !stage || !overlay || !touchStick || !touchNub) {
+  if (
+    !shell ||
+    !canvas ||
+    !stage ||
+    !overlay ||
+    !touchStick ||
+    !touchNub ||
+    !orientationControl ||
+    !leaveGameButton
+  ) {
     throw new Error('Game UI failed to mount.');
   }
 
@@ -61,16 +76,37 @@ export function createGameApp(root: HTMLElement): void {
   const keyboard = new KeyboardInput();
   const touch = new TouchInput(stage, touchStick, touchNub);
 
+  const syncOrientationControl = (): void => {
+    updateOrientationButtons(
+      [
+        ...orientationControl.querySelectorAll<HTMLButtonElement>(
+          '[data-orientation]',
+        ),
+      ],
+      preferredOrientation,
+    );
+  };
+
+  const setPreferredOrientation = (next: ScreenOrientationMode): void => {
+    if (next === preferredOrientation) {
+      return;
+    }
+
+    preferredOrientation = next;
+    savePreferredOrientation(preferredOrientation);
+    syncOrientationControl();
+    resize();
+  };
+
   const applyLayout = (): void => {
-    const playing = game !== null;
-    const rotated = playing && needsForcedRotation(preferredOrientation);
+    const rotated = needsForcedRotation(preferredOrientation);
     shell.classList.toggle('is-rotated', rotated);
     touch.setRotation(rotated ? 90 : 0);
   };
 
   const resize = (): void => {
     applyLayout();
-    const fallback = getPlaySize(preferredOrientation, game !== null);
+    const fallback = getPlaySize(preferredOrientation);
     const width = Math.max(1, stage.clientWidth || fallback.width);
     const height = Math.max(1, stage.clientHeight || fallback.height);
     const scale = window.devicePixelRatio || 1;
@@ -84,6 +120,10 @@ export function createGameApp(root: HTMLElement): void {
     hud.root.hidden = !visible;
   };
 
+  const setPlayingChrome = (playing: boolean): void => {
+    orientationControl.hidden = playing;
+  };
+
   const syncHudHero = (hero: HeroDefinition): void => {
     hud.name.textContent = hero.name;
     hud.avatar.style.background = hero.portraitSrc || hero.portraitSrcSm ? 'transparent' : hero.color;
@@ -91,10 +131,7 @@ export function createGameApp(root: HTMLElement): void {
   };
 
   const startGame = (): void => {
-    // Follow the device orientation at start so play matches how the phone is held.
-    preferredOrientation = getDeviceOrientation();
-    savePreferredOrientation(preferredOrientation);
-    const size = getPlaySize(preferredOrientation, true);
+    const size = getPlaySize(preferredOrientation);
     game = new Game({
       width: size.width,
       height: size.height,
@@ -104,14 +141,15 @@ export function createGameApp(root: HTMLElement): void {
     lastTime = performance.now();
     syncHudHero(selectedHero);
     setHudVisible(true);
+    setPlayingChrome(true);
     overlay.hidden = true;
     resize();
-    // Do not lock orientation — allow live portrait/landscape swaps while playing.
   };
 
   const returnToMenu = (): void => {
     game = null;
     setHudVisible(false);
+    setPlayingChrome(false);
     void tryUnlockOrientation();
     showOverlay(null);
     resize();
@@ -131,32 +169,12 @@ export function createGameApp(root: HTMLElement): void {
     }
   };
 
-  const bindOrientationSelect = (container: HTMLElement): void => {
-    const buttons = [
-      ...container.querySelectorAll<HTMLButtonElement>('[data-orientation]'),
-    ];
-
-    for (const button of buttons) {
-      button.addEventListener('click', () => {
-        const next = parseOrientation(button.dataset.orientation);
-        if (!next) {
-          return;
-        }
-
-        preferredOrientation = next;
-        savePreferredOrientation(preferredOrientation);
-        updateOrientationButtons(buttons, preferredOrientation);
-      });
-    }
-  };
-
   const showOverlay = (snapshot: GameSnapshot | null): void => {
     overlay.hidden = false;
 
     if (!snapshot) {
-      overlay.innerHTML = renderStartScreen(selectedHero, preferredOrientation);
+      overlay.innerHTML = renderStartScreen(selectedHero);
       bindHeroSelect(overlay);
-      bindOrientationSelect(overlay);
       overlay
         .querySelector<HTMLButtonElement>('[data-start]')
         ?.addEventListener('click', startGame);
@@ -278,44 +296,43 @@ export function createGameApp(root: HTMLElement): void {
     });
   };
 
-  const syncOrientationFromDevice = (): void => {
-    const next = getDeviceOrientation();
-    if (next === preferredOrientation) {
-      resize();
-      return;
-    }
-
-    preferredOrientation = next;
-    savePreferredOrientation(preferredOrientation);
-
-    const buttons = [
-      ...overlay.querySelectorAll<HTMLButtonElement>('[data-orientation]'),
-    ];
-    if (buttons.length > 0) {
-      updateOrientationButtons(buttons, preferredOrientation);
-    }
-
-    resize();
-  };
-
   let orientationSyncTimer = 0;
 
   const onDeviceOrientationChange = (): void => {
-    // Viewport size often updates after the orientation event.
+    // Viewport size often updates after the orientation event; keep the user's choice.
     window.clearTimeout(orientationSyncTimer);
     orientationSyncTimer = window.setTimeout(() => {
-      syncOrientationFromDevice();
+      resize();
     }, 120);
   };
 
   const screenOrientation = window.screen.orientation;
+
+  orientationControl.addEventListener('click', (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) {
+      return;
+    }
+
+    const button = target.closest<HTMLButtonElement>('[data-orientation]');
+    const next = parseOrientation(button?.dataset.orientation);
+    if (!next) {
+      return;
+    }
+
+    setPreferredOrientation(next);
+  });
+
+  leaveGameButton.addEventListener('click', returnToMenu);
 
   window.addEventListener('resize', resize);
   window.addEventListener('orientationchange', onDeviceOrientationChange);
   screenOrientation?.addEventListener('change', onDeviceOrientationChange);
   window.visualViewport?.addEventListener('resize', resize);
   window.visualViewport?.addEventListener('scroll', resize);
-  syncOrientationFromDevice();
+  syncOrientationControl();
+  setPlayingChrome(false);
+  resize();
   setHudVisible(false);
   showSplash();
   animationFrame = requestAnimationFrame(tick);
@@ -343,7 +360,16 @@ function renderShell(): string {
           <div class="hud__profile">
             <div class="hud__avatar" data-hud-avatar></div>
             <div class="hud__info">
-              <div class="hud__name" data-hud-name></div>
+              <div class="hud__heading">
+                <div class="hud__name" data-hud-name></div>
+                <button
+                  class="hud__leave"
+                  type="button"
+                  data-leave-game
+                >
+                  Έξοδος
+                </button>
+              </div>
               <div class="hud__hp" aria-label="Υγεία">
                 <div class="hp-bar">
                   <div class="hp-bar__fill" data-hp-fill></div>
@@ -366,15 +392,37 @@ function renderShell(): string {
           <div class="touch-stick__nub" data-touch-nub></div>
         </div>
         <div class="overlay" data-overlay></div>
+        <div
+          class="orientation-control"
+          data-orientation-control
+          role="group"
+          aria-label="Προσανατολισμός οθόνης"
+        >
+          <button
+            class="orientation-control__button"
+            type="button"
+            data-orientation="portrait"
+            aria-label="Κατακόρυφα"
+            title="Κατακόρυφα"
+          >
+            <span class="orientation-control__icon orientation-control__icon--portrait" aria-hidden="true"></span>
+          </button>
+          <button
+            class="orientation-control__button"
+            type="button"
+            data-orientation="landscape"
+            aria-label="Οριζόντια"
+            title="Οριζόντια"
+          >
+            <span class="orientation-control__icon" aria-hidden="true"></span>
+          </button>
+        </div>
       </section>
     </div>
   `;
 }
 
-function renderStartScreen(
-  selectedHero: HeroDefinition,
-  orientation: ScreenOrientationMode,
-): string {
+function renderStartScreen(selectedHero: HeroDefinition): string {
   return `
     <section class="start-screen dialog dialog--start" aria-modal="true">
       <header class="start-screen__brand">
@@ -383,29 +431,6 @@ function renderStartScreen(
       </header>
       <div class="start-screen__heroes" aria-label="Επιλογή ήρωα">
         ${heroes.map((hero) => renderHeroCard(hero, hero.id === selectedHero.id)).join('')}
-      </div>
-      <div class="start-screen__orientation" aria-label="Προσανατολισμός οθόνης">
-        <p class="start-screen__orientation-label">Προσανατολισμός παιχνιδιού</p>
-        <div class="orientation-toggle" role="group">
-          <button
-            class="orientation-button"
-            type="button"
-            data-orientation="portrait"
-            aria-pressed="${orientation === 'portrait'}"
-          >
-            <span class="orientation-button__icon orientation-button__icon--portrait" aria-hidden="true"></span>
-            <span class="orientation-button__label">Κατακόρυφα</span>
-          </button>
-          <button
-            class="orientation-button"
-            type="button"
-            data-orientation="landscape"
-            aria-pressed="${orientation === 'landscape'}"
-          >
-            <span class="orientation-button__icon" aria-hidden="true"></span>
-            <span class="orientation-button__label">Οριζόντια</span>
-          </button>
-        </div>
       </div>
       <p class="start-screen__hint">Κινήσου με WASD, βέλη ή άγγιγμα. Οι επιθέσεις στοχεύουν αυτόματα.</p>
       <div class="dialog-actions">
@@ -601,22 +626,18 @@ function isDevicePortrait(): boolean {
   return height >= width;
 }
 
-function getDeviceOrientation(): ScreenOrientationMode {
-  return isDevicePortrait() ? 'portrait' : 'landscape';
-}
-
 function needsForcedRotation(preferred: ScreenOrientationMode): boolean {
   const devicePortrait = isDevicePortrait();
   return preferred === 'landscape' ? devicePortrait : !devicePortrait;
 }
 
-function getPlaySize(
-  preferred: ScreenOrientationMode,
-  playing: boolean,
-): { width: number; height: number } {
+function getPlaySize(preferred: ScreenOrientationMode): {
+  width: number;
+  height: number;
+} {
   const viewport = getViewportSize();
 
-  if (playing && needsForcedRotation(preferred)) {
+  if (needsForcedRotation(preferred)) {
     return { width: viewport.height, height: viewport.width };
   }
 

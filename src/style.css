@@ -99,10 +99,36 @@
   min-width: 0;
 }
 
+.hud__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
 .hud__name {
   font-size: 0.95rem;
   font-weight: 800;
   line-height: 1.1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hud__leave {
+  flex: 0 0 auto;
+  pointer-events: auto;
+  border: 1px solid rgba(245, 241, 232, 0.18);
+  border-radius: 999px;
+  background: rgba(245, 241, 232, 0.06);
+  color: var(--text);
+  padding: 4px 10px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1.2;
+  cursor: pointer;
 }
 
 .hud__hp {
@@ -205,6 +231,7 @@
 .overlay {
   position: absolute;
   inset: 0;
+  z-index: 3;
   display: grid;
   place-items: center;
   background: rgba(16, 19, 24, 0.55);
@@ -422,62 +449,54 @@
   font-size: 0.88rem;
 }
 
-.start-screen__orientation {
-  margin: 16px 0 4px;
+.orientation-control {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 5;
+  display: inline-grid;
+  grid-auto-flow: column;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid rgba(245, 241, 232, 0.18);
+  border-radius: 999px;
+  background: rgba(16, 19, 24, 0.78);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(10px);
 }
 
-.start-screen__orientation-label {
-  margin: 0 0 8px;
-  color: var(--muted);
-  font-size: 0.82rem;
-  font-weight: 700;
-  text-align: center;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.orientation-toggle {
+.orientation-control__button {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.orientation-button {
-  display: grid;
-  justify-items: center;
-  gap: 6px;
-  min-height: 64px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: rgba(245, 241, 232, 0.04);
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
   color: var(--text);
-  padding: 10px 8px;
   cursor: pointer;
 }
 
-.orientation-button[aria-pressed='true'] {
-  border-color: var(--gold);
-  background: rgba(244, 201, 93, 0.12);
-  box-shadow: 0 0 0 1px rgba(244, 201, 93, 0.25);
+.orientation-control__button[aria-pressed='true'] {
+  background: rgba(244, 201, 93, 0.2);
+  color: var(--gold);
 }
 
-.orientation-button__icon {
+.orientation-control__icon {
   display: block;
-  width: 28px;
-  height: 20px;
+  width: 22px;
+  height: 14px;
   border: 2px solid currentColor;
   border-radius: 3px;
-  opacity: 0.9;
 }
 
-.orientation-button__icon--portrait {
-  width: 16px;
-  height: 26px;
+.orientation-control__icon--portrait {
+  width: 12px;
+  height: 20px;
 }
 
-.orientation-button__label {
-  font-size: 0.82rem;
-  font-weight: 800;
+.orientation-control[hidden] {
+  display: none;
 }
 
 .hero-card {
