@@ -27,11 +27,9 @@ export const heroes: HeroDefinition[] = [
     color: '#66d9a3',
     accent: '#f4c95d',
     weaponName: 'Αστροβολές',
+    startingWeaponId: 'star-throw',
     maxHp: 140,
     speed: 230,
-    projectileDamage: 20,
-    projectileCooldown: 0.52,
-    projectileSpeed: 540,
   },
   {
     id: 'hero-two',
@@ -54,12 +52,10 @@ export const heroes: HeroDefinition[] = [
     },
     color: '#7bb7ff',
     accent: '#ff8e72',
-    weaponName: 'Σεληνιακή Δέσμη',
+    weaponName: 'Ιστός',
+    startingWeaponId: 'web-pool',
     maxHp: 115,
     speed: 270,
-    projectileDamage: 18,
-    projectileCooldown: 0.38,
-    projectileSpeed: 610,
   },
 ];
 

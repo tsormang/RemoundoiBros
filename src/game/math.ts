@@ -51,3 +51,50 @@ export function rectsOverlap(a: Rect, b: Rect, padding = 0): boolean {
     b.y + b.height + padding <= a.y
   );
 }
+
+export function rotateVector(vector: Vec2, radians: number): Vec2 {
+  const cos = Math.cos(radians);
+  const sin = Math.sin(radians);
+  return {
+    x: vector.x * cos - vector.y * sin,
+    y: vector.x * sin + vector.y * cos,
+  };
+}
+
+export function reflectVector(velocity: Vec2, normal: Vec2): Vec2 {
+  const dot = velocity.x * normal.x + velocity.y * normal.y;
+  return {
+    x: velocity.x - 2 * dot * normal.x,
+    y: velocity.y - 2 * dot * normal.y,
+  };
+}
+
+export function findDensestClusterCenter(
+  positions: Vec2[],
+  clusterRadius: number,
+): Vec2 | null {
+  if (positions.length === 0) {
+    return null;
+  }
+
+  const radiusSquared = clusterRadius * clusterRadius;
+  let bestCenter = positions[0];
+  let bestCount = 0;
+
+  for (const candidate of positions) {
+    let count = 0;
+
+    for (const other of positions) {
+      if (distanceSquared(candidate, other) <= radiusSquared) {
+        count += 1;
+      }
+    }
+
+    if (count > bestCount) {
+      bestCount = count;
+      bestCenter = candidate;
+    }
+  }
+
+  return bestCenter;
+}

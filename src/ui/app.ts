@@ -1,4 +1,11 @@
 import { Game } from '../game/Game';
+import {
+  DIFFICULTY_OPTIONS,
+  loadPreferredDifficulty,
+  parseDifficulty,
+  savePreferredDifficulty,
+  type DifficultyId,
+} from '../game/difficulty';
 import { heroes } from '../game/heroes';
 import type {
   GameSnapshot,
@@ -8,7 +15,11 @@ import type {
 } from '../game/types';
 import { KeyboardInput } from '../input/keyboardInput';
 import { TouchInput } from '../input/touchInput';
-import { loadPlayerStats, saveRunSummary } from '../infra/runRepository';
+import {
+  loadPlayerStats,
+  resetAllPlayerStats,
+  saveRunSummary,
+} from '../infra/runRepository';
 import { formatTime } from './format';
 import { mountSplashScreen, type SplashHandle } from './splashScreen';
 
@@ -26,17 +37,29 @@ type HudElements = {
 };
 
 type ScreenOrientationMode = 'portrait' | 'landscape';
+type ViewZoomMode = 'close' | 'normal' | 'far';
 
 const ORIENTATION_STORAGE_KEY = 'remoundoi-orientation';
+const ZOOM_STORAGE_KEY = 'remoundoi-zoom';
+const ADMIN_UNLOCK_CLICKS = 8;
+const VIEW_ZOOM_SCALE: Record<ViewZoomMode, number> = {
+  close: 1.25,
+  normal: 1,
+  far: 0.75,
+};
 
 export function createGameApp(root: HTMLElement): void {
   let selectedHero = heroes[0];
   let preferredOrientation = loadPreferredOrientation();
+  let preferredZoom = loadPreferredZoom();
+  let preferredDifficulty = loadPreferredDifficulty();
   let game: Game | null = null;
   let animationFrame = 0;
   let lastTime = performance.now();
   let runSaved = false;
   let splash: SplashHandle | null = null;
+  let pausedForSettings = false;
+  let adminUnlockClicks = 0;
 
   root.innerHTML = renderShell();
 
@@ -49,8 +72,8 @@ export function createGameApp(root: HTMLElement): void {
   const orientationControl = root.querySelector<HTMLElement>(
     '[data-orientation-control]',
   );
-  const leaveGameButton = root.querySelector<HTMLButtonElement>(
-    '[data-leave-game]',
+  const settingsButton = root.querySelector<HTMLButtonElement>(
+    '[data-settings-menu]',
   );
   const hud = getHudElements(root);
 
@@ -62,7 +85,7 @@ export function createGameApp(root: HTMLElement): void {
     !touchStick ||
     !touchNub ||
     !orientationControl ||
-    !leaveGameButton
+    !settingsButton
   ) {
     throw new Error('Game UI failed to mount.');
   }
@@ -95,6 +118,18 @@ export function createGameApp(root: HTMLElement): void {
     preferredOrientation = next;
     savePreferredOrientation(preferredOrientation);
     syncOrientationControl();
+    syncSettingsOptionButtons();
+    resize();
+  };
+
+  const setPreferredZoom = (next: ViewZoomMode): void => {
+    if (next === preferredZoom) {
+      return;
+    }
+
+    preferredZoom = next;
+    savePreferredZoom(preferredZoom);
+    syncSettingsOptionButtons();
     resize();
   };
 
@@ -109,11 +144,14 @@ export function createGameApp(root: HTMLElement): void {
     const fallback = getPlaySize(preferredOrientation);
     const width = Math.max(1, stage.clientWidth || fallback.width);
     const height = Math.max(1, stage.clientHeight || fallback.height);
-    const scale = window.devicePixelRatio || 1;
-    canvas.width = Math.max(1, Math.floor(width * scale));
-    canvas.height = Math.max(1, Math.floor(height * scale));
-    context.setTransform(scale, 0, 0, scale, 0, 0);
-    game?.resize(width, height);
+    const dpr = window.devicePixelRatio || 1;
+    const viewScale = VIEW_ZOOM_SCALE[preferredZoom];
+    const worldWidth = width / viewScale;
+    const worldHeight = height / viewScale;
+    canvas.width = Math.max(1, Math.floor(width * dpr));
+    canvas.height = Math.max(1, Math.floor(height * dpr));
+    context.setTransform(dpr * viewScale, 0, 0, dpr * viewScale, 0, 0);
+    game?.resize(worldWidth, worldHeight);
   };
 
   const setHudVisible = (visible: boolean): void => {
@@ -132,10 +170,14 @@ export function createGameApp(root: HTMLElement): void {
 
   const startGame = (): void => {
     const size = getPlaySize(preferredOrientation);
+    const viewScale = VIEW_ZOOM_SCALE[preferredZoom];
+    pausedForSettings = false;
+    adminUnlockClicks = 0;
     game = new Game({
-      width: size.width,
-      height: size.height,
+      width: size.width / viewScale,
+      height: size.height / viewScale,
       hero: selectedHero,
+      difficulty: preferredDifficulty,
     });
     runSaved = false;
     lastTime = performance.now();
@@ -147,12 +189,97 @@ export function createGameApp(root: HTMLElement): void {
   };
 
   const returnToMenu = (): void => {
+    pausedForSettings = false;
     game = null;
     setHudVisible(false);
     setPlayingChrome(false);
     void tryUnlockOrientation();
     showOverlay(null);
     resize();
+  };
+
+  const syncSettingsOptionButtons = (): void => {
+    if (!pausedForSettings || overlay.hidden) {
+      return;
+    }
+
+    updateOrientationButtons(
+      [...overlay.querySelectorAll<HTMLButtonElement>('[data-orientation]')],
+      preferredOrientation,
+    );
+    updateZoomButtons(
+      [...overlay.querySelectorAll<HTMLButtonElement>('[data-zoom]')],
+      preferredZoom,
+    );
+  };
+
+  const closeSettingsMenu = (): void => {
+    if (!pausedForSettings) {
+      return;
+    }
+
+    pausedForSettings = false;
+    overlay.hidden = true;
+    lastTime = performance.now();
+  };
+
+  const showSettingsMenu = (): void => {
+    if (!game || pausedForSettings || !overlay.hidden) {
+      return;
+    }
+
+    const snapshot = game.getSnapshot();
+    if (snapshot.gameOver || snapshot.pausedForUpgrade) {
+      return;
+    }
+
+    pausedForSettings = true;
+    overlay.hidden = false;
+    overlay.innerHTML = renderSettingsMenu(preferredOrientation, preferredZoom);
+
+    overlay
+      .querySelector<HTMLButtonElement>('[data-settings-resume]')
+      ?.addEventListener('click', closeSettingsMenu);
+    overlay
+      .querySelector<HTMLButtonElement>('[data-settings-restart]')
+      ?.addEventListener('click', startGame);
+    overlay
+      .querySelector<HTMLButtonElement>('[data-settings-leave]')
+      ?.addEventListener('click', returnToMenu);
+
+    overlay
+      .querySelector<HTMLElement>('[data-settings-orientation]')
+      ?.addEventListener('click', (event) => {
+        const target = event.target;
+        if (!(target instanceof Element)) {
+          return;
+        }
+
+        const button = target.closest<HTMLButtonElement>('[data-orientation]');
+        const next = parseOrientation(button?.dataset.orientation);
+        if (!next) {
+          return;
+        }
+
+        setPreferredOrientation(next);
+      });
+
+    overlay
+      .querySelector<HTMLElement>('[data-settings-zoom]')
+      ?.addEventListener('click', (event) => {
+        const target = event.target;
+        if (!(target instanceof Element)) {
+          return;
+        }
+
+        const button = target.closest<HTMLButtonElement>('[data-zoom]');
+        const next = parseZoom(button?.dataset.zoom);
+        if (!next) {
+          return;
+        }
+
+        setPreferredZoom(next);
+      });
   };
 
   const bindHeroSelect = (container: HTMLElement): void => {
@@ -169,12 +296,106 @@ export function createGameApp(root: HTMLElement): void {
     }
   };
 
+  const bindAdminUnlock = (container: HTMLElement): void => {
+    container
+      .querySelector<HTMLButtonElement>('[data-admin-unlock]')
+      ?.addEventListener('click', () => {
+        adminUnlockClicks += 1;
+        if (adminUnlockClicks < ADMIN_UNLOCK_CLICKS) {
+          return;
+        }
+
+        adminUnlockClicks = 0;
+        showAdminMenu();
+      });
+  };
+
+  const setPreferredDifficulty = (next: DifficultyId): void => {
+    if (next === preferredDifficulty) {
+      return;
+    }
+
+    preferredDifficulty = next;
+    savePreferredDifficulty(preferredDifficulty);
+    updateDifficultyButtons(
+      [...overlay.querySelectorAll<HTMLButtonElement>('[data-difficulty]')],
+      preferredDifficulty,
+    );
+  };
+
+  const showAdminMenu = (): void => {
+    overlay.hidden = false;
+    overlay.innerHTML = renderAdminMenu(preferredDifficulty);
+
+    overlay
+      .querySelector<HTMLElement>('[data-admin-difficulty]')
+      ?.addEventListener('click', (event) => {
+        const target = event.target;
+        if (!(target instanceof Element)) {
+          return;
+        }
+
+        const button = target.closest<HTMLButtonElement>('[data-difficulty]');
+        const next = parseDifficulty(button?.dataset.difficulty);
+        if (!next) {
+          return;
+        }
+
+        setPreferredDifficulty(next);
+      });
+
+    overlay
+      .querySelector<HTMLButtonElement>('[data-admin-reset-stats]')
+      ?.addEventListener('click', () => {
+        void (async () => {
+          const button = overlay.querySelector<HTMLButtonElement>(
+            '[data-admin-reset-stats]',
+          );
+          const status = overlay.querySelector<HTMLElement>(
+            '[data-admin-reset-status]',
+          );
+
+          if (button) {
+            button.disabled = true;
+          }
+
+          if (status) {
+            status.textContent = 'Μηδενισμός…';
+          }
+
+          try {
+            await resetAllPlayerStats();
+            if (status) {
+              status.textContent = 'Τα στατιστικά μηδενίστηκαν.';
+            }
+          } catch (error) {
+            console.warn('Could not reset player stats:', error);
+            if (status) {
+              status.textContent = 'Αποτυχία μηδενισμού.';
+            }
+          } finally {
+            if (button) {
+              button.disabled = false;
+            }
+          }
+        })();
+      });
+
+    overlay
+      .querySelector<HTMLButtonElement>('[data-admin-back]')
+      ?.addEventListener('click', () => {
+        showOverlay(null);
+      });
+  };
+
   const showOverlay = (snapshot: GameSnapshot | null): void => {
     overlay.hidden = false;
 
     if (!snapshot) {
+      adminUnlockClicks = 0;
       overlay.innerHTML = renderStartScreen(selectedHero);
       bindHeroSelect(overlay);
+      bindAdminUnlock(overlay);
       overlay
         .querySelector<HTMLButtonElement>('[data-start]')
         ?.addEventListener('click', startGame);
@@ -196,8 +417,15 @@ export function createGameApp(root: HTMLElement): void {
               .map(
                 (upgrade) => `
                   <button class="upgrade-button" type="button" data-upgrade="${upgrade.id}">
-                    <strong>${upgrade.title}</strong>
-                    <span>${upgrade.description}</span>
+                    ${
+                      upgrade.iconSrc
+                        ? `<img class="upgrade-button__icon" src="${upgrade.iconSrc}" alt="" width="48" height="48" />`
+                        : ''
+                    }
+                    <span class="upgrade-button__body">
+                      <strong>${upgrade.title}</strong>
+                      <span>${upgrade.description}</span>
+                    </span>
                   </button>
                 `,
               )
@@ -264,14 +492,23 @@ export function createGameApp(root: HTMLElement): void {
 
     const width = canvas.clientWidth;
     const height = canvas.clientHeight;
-    context.clearRect(0, 0, width, height);
+    const viewScale = VIEW_ZOOM_SCALE[preferredZoom];
+    context.clearRect(0, 0, width / viewScale, height / viewScale);
 
     if (game) {
-      const input = mergeInputs(keyboard.getState(), touch.getState());
-      game.update(deltaSeconds, input);
+      if (!pausedForSettings) {
+        const input = mergeInputs(keyboard.getState(), touch.getState());
+        game.update(deltaSeconds, input);
+      }
+
       game.draw(context);
       const snapshot = game.getSnapshot();
       updateHud(hud, snapshot);
+
+      if (pausedForSettings) {
+        animationFrame = requestAnimationFrame(tick);
+        return;
+      }
 
       if (snapshot.pausedForUpgrade && overlay.hidden) {
         showOverlay(snapshot);
@@ -323,7 +560,7 @@ export function createGameApp(root: HTMLElement): void {
     setPreferredOrientation(next);
   });
 
-  leaveGameButton.addEventListener('click', returnToMenu);
+  settingsButton.addEventListener('click', showSettingsMenu);
 
   window.addEventListener('resize', resize);
   window.addEventListener('orientationchange', onDeviceOrientationChange);
@@ -363,11 +600,23 @@ function renderShell(): string {
               <div class="hud__heading">
                 <div class="hud__name" data-hud-name></div>
                 <button
-                  class="hud__leave"
+                  class="hud__settings"
                   type="button"
-                  data-leave-game
+                  data-settings-menu
+                  aria-label="Ρυθμίσεις"
+                  title="Ρυθμίσεις"
                 >
-                  Έξοδος
+                  <svg
+                    class="hud__settings-icon"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                    focusable="false"
+                  >
+                    <path
+                      fill="currentColor"
+                      d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.07 7.07 0 0 0-1.63-.94l-.36-2.54A.5.5 0 0 0 13.9 2h-3.8a.5.5 0 0 0-.5.42l-.36 2.54c-.58.23-1.12.54-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.7 8.48a.5.5 0 0 0 .12.64l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94L2.82 14.52a.5.5 0 0 0-.12.64l1.92 3.32c.14.24.43.34.68.22l2.39-.96c.5.4 1.05.71 1.63.94l.36 2.54c.05.24.26.42.5.42h3.8c.24 0 .45-.18.5-.42l.36-2.54c.58-.23 1.12-.54 1.63-.94l2.39.96c.25.12.54.02.68-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58ZM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7Z"
+                    />
+                  </svg>
                 </button>
               </div>
               <div class="hud__hp" aria-label="Υγεία">
@@ -426,7 +675,23 @@ function renderStartScreen(selectedHero: HeroDefinition): string {
   return `
     <section class="start-screen dialog dialog--start" aria-modal="true">
       <header class="start-screen__brand">
-        <h1>Remoundoi Bros</h1>
+        <h1 class="start-screen__title">
+          <button
+            class="start-screen__admin-star"
+            type="button"
+            data-admin-unlock
+            aria-label=" "
+            tabindex="-1"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path
+                fill="currentColor"
+                d="M12 2.6 14.7 9h6.6l-5.3 4 2 6.4L12 15.8 5.9 19.4l2-6.4-5.3-4h6.6L12 2.6Z"
+              />
+            </svg>
+          </button>
+          <span>Remoundoi Bros</span>
+        </h1>
         <p>Διάλεξε έναν αδελφό και επιβίωσε στην αρένα.</p>
       </header>
       <div class="start-screen__heroes" aria-label="Επιλογή ήρωα">
@@ -442,6 +707,8 @@ function renderStartScreen(selectedHero: HeroDefinition): string {
 }
 
 function renderStatsScreen(stats: PlayerStats[]): string {
+  const championIds = getChampionHeroIds(stats);
+
   return `
     <section class="dialog dialog--start stats-screen" aria-modal="true">
       <header class="start-screen__brand">
@@ -449,7 +716,11 @@ function renderStatsScreen(stats: PlayerStats[]): string {
         <p>Συνολικά αποθηκευμένα ανά αδελφό.</p>
       </header>
       <div class="stats-list" aria-label="Στατιστικά καριέρας">
-        ${stats.map((entry) => renderPlayerStatsCard(entry)).join('')}
+        ${stats
+          .map((entry) =>
+            renderPlayerStatsCard(entry, championIds.has(entry.heroId)),
+          )
+          .join('')}
       </div>
       <div class="dialog-actions">
         <button class="secondary-button" type="button" data-back>Πίσω</button>
@@ -458,20 +729,158 @@ function renderStatsScreen(stats: PlayerStats[]): string {
   `;
 }
 
-function renderPlayerStatsCard(stats: PlayerStats): string {
+function renderSettingsMenu(
+  orientation: ScreenOrientationMode,
+  zoom: ViewZoomMode,
+): string {
+  return `
+    <section class="dialog dialog--settings" aria-modal="true" aria-label="Ρυθμίσεις">
+      <header class="settings-menu__header">
+        <h2>Ρυθμίσεις</h2>
+        <p>Το παιχνίδι είναι σε παύση.</p>
+      </header>
+
+      <div class="settings-menu__section">
+        <h3 class="settings-menu__label">Προσανατολισμός</h3>
+        <div
+          class="settings-segment"
+          data-settings-orientation
+          role="group"
+          aria-label="Προσανατολισμός οθόνης"
+        >
+          <button
+            class="settings-segment__button"
+            type="button"
+            data-orientation="portrait"
+            aria-pressed="${orientation === 'portrait'}"
+          >
+            Κατακόρυφα
+          </button>
+          <button
+            class="settings-segment__button"
+            type="button"
+            data-orientation="landscape"
+            aria-pressed="${orientation === 'landscape'}"
+          >
+            Οριζόντια
+          </button>
+        </div>
+      </div>
+
+      <div class="settings-menu__section">
+        <h3 class="settings-menu__label">Προβολή</h3>
+        <div
+          class="settings-segment"
+          data-settings-zoom
+          role="group"
+          aria-label="Απόσταση κάμερας"
+        >
+          <button
+            class="settings-segment__button"
+            type="button"
+            data-zoom="close"
+            aria-pressed="${zoom === 'close'}"
+          >
+            Κοντά
+          </button>
+          <button
+            class="settings-segment__button"
+            type="button"
+            data-zoom="normal"
+            aria-pressed="${zoom === 'normal'}"
+          >
+            Κανονικό
+          </button>
+          <button
+            class="settings-segment__button"
+            type="button"
+            data-zoom="far"
+            aria-pressed="${zoom === 'far'}"
+          >
+            Μακριά
+          </button>
+        </div>
+      </div>
+
+      <div class="dialog-actions">
+        <button class="primary-button" type="button" data-settings-resume>Συνέχεια</button>
+        <button class="secondary-button" type="button" data-settings-restart>Επανεκκίνηση</button>
+        <button class="secondary-button" type="button" data-settings-leave>Έξοδος</button>
+      </div>
+    </section>
+  `;
+}
+
+function renderAdminMenu(difficulty: DifficultyId): string {
+  return `
+    <section class="dialog dialog--settings" aria-modal="true" aria-label="Admin">
+      <header class="settings-menu__header">
+        <h2>Admin</h2>
+        <p>Κρυφές ρυθμίσεις ανάπτυξης.</p>
+      </header>
+
+      <div class="settings-menu__section">
+        <h3 class="settings-menu__label">Difficulty</h3>
+        <div
+          class="settings-segment settings-segment--wrap"
+          data-admin-difficulty
+          role="group"
+          aria-label="Difficulty"
+        >
+          ${DIFFICULTY_OPTIONS.map(
+            (option) => `
+              <button
+                class="settings-segment__button"
+                type="button"
+                data-difficulty="${option.id}"
+                aria-pressed="${difficulty === option.id}"
+              >
+                ${option.label}
+              </button>
+            `,
+          ).join('')}
+        </div>
+      </div>
+
+      <div class="settings-menu__section">
+        <h3 class="settings-menu__label">Stats</h3>
+        <button class="secondary-button" type="button" data-admin-reset-stats>
+          Reset all stats
+        </button>
+        <p class="settings-menu__status" data-admin-reset-status></p>
+      </div>
+
+      <div class="dialog-actions">
+        <button class="secondary-button" type="button" data-admin-back>Πίσω</button>
+      </div>
+    </section>
+  `;
+}
+
+function renderPlayerStatsCard(
+  stats: PlayerStats,
+  isChampion = false,
+): string {
   const hero = heroes.find((entry) => entry.id === stats.heroId);
   const accent = hero?.color ?? 'var(--gold)';
   const displayName = hero?.name ?? stats.heroName;
   const runsLabel = stats.runs === 1 ? 'παρτίδα' : 'παρτίδες';
 
   return `
-    <article class="stats-card">
+    <article class="stats-card${isChampion ? ' stats-card--champion' : ''}">
       <header class="stats-card__header">
         <span class="stats-card__avatar"${hero?.portraitSrc || hero?.portraitSrcSm ? '' : ` style="background:${accent}"`}>
           ${hero ? renderAvatarContent(hero, 'sm') : displayName.slice(0, 1)}
         </span>
-        <div>
-          <h3 class="stats-card__name">${displayName}</h3>
+        <div class="stats-card__identity">
+          <h3 class="stats-card__name">
+            <span>${displayName}</span>
+            ${
+              isChampion
+                ? `<span class="stats-card__medal" title="Καλύτερα στατιστικά" aria-label="Καλύτερα στατιστικά">${renderGoldMedalIcon()}</span>`
+                : ''
+            }
+          </h3>
           <p class="stats-card__runs">${stats.runs} ${runsLabel}</p>
         </div>
       </header>
@@ -487,6 +896,58 @@ function renderPlayerStatsCard(stats: PlayerStats): string {
   `;
 }
 
+function renderGoldMedalIcon(): string {
+  return `
+    <svg class="stats-card__medal-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path fill="#c9841a" d="M7.2 2.5h3.1l1.7 4.8H8.9L7.2 2.5Zm6.5 0h3.1l-1.7 4.8h-3.1L13.7 2.5Z"/>
+      <circle cx="12" cy="15.2" r="6.2" fill="#f4c95d"/>
+      <circle cx="12" cy="15.2" r="4.6" fill="#ffe29a"/>
+      <path fill="#c9841a" d="M12 11.4 13.2 14l2.8.3-2.1 1.9.6 2.8L12 17.6l-2.5 1.4.6-2.8-2.1-1.9 2.8-.3L12 11.4Z"/>
+    </svg>
+  `;
+}
+
+function getChampionHeroIds(stats: PlayerStats[]): Set<string> {
+  let bestScore = 0;
+  const champions = new Set<string>();
+
+  for (const entry of stats) {
+    const score = scorePlayerStats(entry);
+    if (score <= 0) {
+      continue;
+    }
+
+    if (score > bestScore) {
+      bestScore = score;
+      champions.clear();
+      champions.add(entry.heroId);
+      continue;
+    }
+
+    if (score === bestScore) {
+      champions.add(entry.heroId);
+    }
+  }
+
+  return champions;
+}
+
+function scorePlayerStats(stats: PlayerStats): number {
+  if (stats.runs <= 0) {
+    return 0;
+  }
+
+  return (
+    stats.bestElapsedSeconds * 12 +
+    stats.bestLevel * 40 +
+    stats.bestKills * 3 +
+    stats.bestGold * 2 +
+    stats.totalKills * 2 +
+    stats.totalGold +
+    stats.totalElapsedSeconds
+  );
+}
+
 function renderHeroCard(hero: HeroDefinition, selected: boolean): string {
   const hasPortrait = Boolean(hero.portraitSrc || hero.portraitSrcSm);
 
@@ -500,7 +961,6 @@ function renderHeroCard(hero: HeroDefinition, selected: boolean): string {
         <span class="hero-card__stats">
           <span><strong>Ζωή</strong> ${hero.maxHp}</span>
           <span><strong>Ταχύτητα</strong> ${hero.speed}</span>
-          <span><strong>Ζημιά</strong> ${hero.projectileDamage}</span>
         </span>
       </span>
       <span class="hero-card__ready">${selected ? 'Επιλεγμένος' : ''}</span>
@@ -605,6 +1065,27 @@ function updateOrientationButtons(
   }
 }
 
+function updateZoomButtons(
+  buttons: HTMLButtonElement[],
+  zoom: ViewZoomMode,
+): void {
+  for (const button of buttons) {
+    button.setAttribute('aria-pressed', String(button.dataset.zoom === zoom));
+  }
+}
+
+function updateDifficultyButtons(
+  buttons: HTMLButtonElement[],
+  difficulty: DifficultyId,
+): void {
+  for (const button of buttons) {
+    button.setAttribute(
+      'aria-pressed',
+      String(button.dataset.difficulty === difficulty),
+    );
+  }
+}
+
 function mergeInputs(keyboard: InputState, touch: InputState): InputState {
   if (touch.move.x !== 0 || touch.move.y !== 0) {
     return touch;
@@ -652,6 +1133,14 @@ function parseOrientation(value: string | undefined): ScreenOrientationMode | nu
   return null;
 }
 
+function parseZoom(value: string | undefined): ViewZoomMode | null {
+  if (value === 'close' || value === 'normal' || value === 'far') {
+    return value;
+  }
+
+  return null;
+}
+
 function loadPreferredOrientation(): ScreenOrientationMode {
   try {
     return parseOrientation(localStorage.getItem(ORIENTATION_STORAGE_KEY) ?? undefined) ??
@@ -664,6 +1153,22 @@ function loadPreferredOrientation(): ScreenOrientationMode {
 function savePreferredOrientation(orientation: ScreenOrientationMode): void {
   try {
     localStorage.setItem(ORIENTATION_STORAGE_KEY, orientation);
+  } catch {
+    // Ignore storage failures (private mode, quota, etc.).
+  }
+}
+
+function loadPreferredZoom(): ViewZoomMode {
+  try {
+    return parseZoom(localStorage.getItem(ZOOM_STORAGE_KEY) ?? undefined) ?? 'normal';
+  } catch {
+    return 'normal';
+  }
+}
+
+function savePreferredZoom(zoom: ViewZoomMode): void {
+  try {
+    localStorage.setItem(ZOOM_STORAGE_KEY, zoom);
   } catch {
     // Ignore storage failures (private mode, quota, etc.).
   }

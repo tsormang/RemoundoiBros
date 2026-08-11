@@ -1,3 +1,19 @@
+export type WeaponId =
+  | 'star-throw'
+  | 'web-pool'
+  | 'orbit-toy'
+  | 'pillow-pop'
+  | 'marble-bounce';
+
+export type PassiveId =
+  | 'bright-stars'
+  | 'sticky-socks'
+  | 'bigger-toys'
+  | 'cozy-blanket'
+  | 'quick-hands'
+  | 'speed'
+  | 'maxHp';
+
 export type Vec2 = {
   x: number;
   y: number;
@@ -85,12 +101,19 @@ export type HeroDefinition = {
   color: string;
   accent: string;
   weaponName: string;
+  startingWeaponId: WeaponId;
   maxHp: number;
   speed: number;
-  projectileDamage: number;
-  projectileCooldown: number;
-  projectileSpeed: number;
 };
+
+export type WeaponInstance = {
+  id: WeaponId;
+  level: number;
+  cooldownTimer: number;
+  evolved: boolean;
+};
+
+export type PassiveLevels = Partial<Record<PassiveId, number>>;
 
 export type Enemy = {
   id: number;
@@ -107,15 +130,95 @@ export type Enemy = {
   behavior: EnemyBehavior;
   phaseTimer: number;
   chargeDirection: Vec2;
+  slowTimer: number;
+  slowMultiplier: number;
 };
+
+export type ProjectileKind = 'star-throw' | 'web-pool' | 'pillow-pop' | 'marble-bounce';
 
 export type Projectile = {
   id: number;
+  kind: ProjectileKind;
+  weaponId: WeaponId;
   position: Vec2;
   velocity: Vec2;
   radius: number;
   damage: number;
   ttl: number;
+  pierceRemaining: number;
+  bouncesRemaining: number;
+  hitEnemyIds: Set<number>;
+  animTime: number;
+  evolved: boolean;
+  poolChance: number;
+  poolRadius: number;
+  poolDuration: number;
+  slowStrength: number;
+  tickDamage: number;
+  pullStrength: number;
+  finalSplit: boolean;
+  splitDamageMultiplier: number;
+};
+
+export type WebPoolEffect = {
+  id: number;
+  weaponId: WeaponId;
+  position: Vec2;
+  radius: number;
+  ttl: number;
+  tickTimer: number;
+  tickDamage: number;
+  slowStrength: number;
+  pullStrength: number;
+  evolved: boolean;
+  animTime: number;
+};
+
+export type OrbitToy = {
+  id: number;
+  weaponId: WeaponId;
+  angle: number;
+  orbitRadius: number;
+  rotationSpeed: number;
+  damage: number;
+  hitDelay: number;
+  drawSize: number;
+  evolved: boolean;
+  hitTimers: Map<number, number>;
+  spriteIndex: number;
+};
+
+export type ExplosionEffect = {
+  id: number;
+  weaponId: WeaponId;
+  position: Vec2;
+  radius: number;
+  damage: number;
+  ttl: number;
+  maxTtl: number;
+  evolved: boolean;
+  lingeringDuration: number;
+  lingeringTickDamage: number;
+};
+
+export type LingeringPuff = {
+  id: number;
+  weaponId: WeaponId;
+  position: Vec2;
+  radius: number;
+  ttl: number;
+  tickTimer: number;
+  tickDamage: number;
+  evolved: boolean;
+  animTime: number;
+};
+
+export type HitSpark = {
+  id: number;
+  position: Vec2;
+  ttl: number;
+  maxTtl: number;
+  spriteSrc: string;
 };
 
 export type XpPickupId = 'xp-gem-blue' | 'xp-gem-purple-large';
@@ -147,12 +250,16 @@ export type Pickup = {
   xp: number;
 };
 
-export type UpgradeId = 'speed' | 'damage' | 'cooldown' | 'maxHp';
+export type UpgradeKind = 'weapon-new' | 'weapon-level' | 'passive';
 
 export type Upgrade = {
-  id: UpgradeId;
+  id: string;
+  kind: UpgradeKind;
+  weaponId?: WeaponId;
+  passiveId?: PassiveId;
   title: string;
   description: string;
+  iconSrc?: string;
 };
 
 export type InputState = {
@@ -173,6 +280,7 @@ export type GameSnapshot = {
   pausedForUpgrade: boolean;
   gameOver: boolean;
   pendingUpgrades: Upgrade[];
+  weapons: WeaponInstance[];
 };
 
 export type RunSummary = {

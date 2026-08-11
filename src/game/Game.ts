@@ -8,6 +8,11 @@ import {
   getBlockerDefinition,
   getBlockerWorldRect,
 } from './blockers';
+import {
+  getDifficultyModifiers,
+  type DifficultyId,
+  type DifficultyModifiers,
+} from './difficulty';
 import { allEnemySpriteSources, getEnemyDefinition } from './enemies';
 import {
   allPickupSpriteSources,
@@ -16,33 +21,55 @@ import {
   isXpPickup,
   resolveEnemyDrop,
 } from './pickups';
-import { drawUpgradeChoices } from './upgrades';
 import {
   circleIntersectsRect,
   clamp,
   distanceSquared,
+  findDensestClusterCenter,
   normalize,
   randomInt,
   randomRange,
   rectsOverlap,
+  reflectVector,
+  rotateVector,
 } from './math';
 import type {
   Blocker,
   Enemy,
+  ExplosionEffect,
   GameSnapshot,
   HeroDefinition,
+  HitSpark,
   InputState,
+  LingeringPuff,
+  OrbitToy,
+  PassiveLevels,
   Pickup,
   Projectile,
-  RunSummary,
   Upgrade,
   Vec2,
+  WeaponInstance,
+  WebPoolEffect,
 } from './types';
+import { drawAttackUpgradeChoices } from './upgrades';
+import {
+  allWeaponSpriteSources,
+  canEvolve,
+  createWeaponInstance,
+  getWeaponDefinition,
+  getWeaponStats,
+  MAX_WEAPON_LEVEL,
+  type MarbleBounceStats,
+  type PillowPopStats,
+  type StarThrowStats,
+  type WebPoolStats,
+} from './weapons';
 
 type GameConfig = {
   width: number;
   height: number;
   hero: HeroDefinition;
+  difficulty?: DifficultyId;
 };
 
 const PLAYER_RADIUS = 18;
@@ -64,9 +91,17 @@ const MOTHER_SLIPPER_FULL_ELAPSED = 150;
 const MOTHER_SLIPPER_CHANCE_MIN = 0.08;
 const MOTHER_SLIPPER_CHANCE_MAX = 0.22;
 const LATE_HARD_ELAPSED = 240;
+const WEB_POOL_TICK_INTERVAL = 0.5;
+const LINGERING_TICK_INTERVAL = 0.45;
+const PROJECTILE_DRAW_SIZE = 32;
+const POOL_DRAW_SIZE = 128;
+const EXPLOSION_DRAW_SIZE = 96;
+const PUFF_DRAW_SIZE = 88;
+const HIT_SPARK_SECONDS = 0.22;
 
 export class Game {
   private readonly hero: HeroDefinition;
+  private readonly difficulty: DifficultyModifiers;
   private readonly world = { width: 0, height: 0 };
   private readonly player = {
     position: { x: 0, y: 0 },
@@ -74,9 +109,6 @@ export class Game {
     hp: 1,
     maxHp: 1,
     speed: 1,
-    damage: 1,
-    cooldown: 1,
-    projectileSpeed: 1,
     facingRight: true,
     moving: false,
     animTime: 0,
@@ -85,12 +117,18 @@ export class Game {
   private blockers: Blocker[] = [];
   private enemies: Enemy[] = [];
   private projectiles: Projectile[] = [];
+  private webPools: WebPoolEffect[] = [];
+  private orbitToys: OrbitToy[] = [];
+  private explosions: ExplosionEffect[] = [];
+  private lingeringPuffs: LingeringPuff[] = [];
+  private hitSparks: HitSpark[] = [];
+  private weapons: WeaponInstance[] = [];
+  private passives: PassiveLevels = {};
   private pickups: Pickup[] = [];
   private pendingUpgrades: Upgrade[] = [];
   private nextEntityId = 1;
   private elapsed = 0;
   private spawnTimer = 0;
-  private fireTimer = 0;
   private damageTimer = 0;
   private hurtTimer = 0;
   private magnetTimer = 0;
@@ -106,6 +144,7 @@ export class Game {
 
   constructor(config: GameConfig) {
     this.hero = config.hero;
+    this.difficulty = getDifficultyModifiers(config.difficulty ?? 'normal');
     this.preloadSprites();
     this.resize(config.width, config.height);
     this.reset();
@@ -134,20 +173,23 @@ export class Game {
     this.player.maxHp = this.hero.maxHp;
     this.player.hp = this.hero.maxHp;
     this.player.speed = this.hero.speed;
-    this.player.damage = this.hero.projectileDamage;
-    this.player.cooldown = this.hero.projectileCooldown;
-    this.player.projectileSpeed = this.hero.projectileSpeed;
     this.player.facingRight = true;
     this.player.moving = false;
     this.player.animTime = 0;
     this.blockers = [];
     this.enemies = [];
     this.projectiles = [];
+    this.webPools = [];
+    this.orbitToys = [];
+    this.explosions = [];
+    this.lingeringPuffs = [];
+    this.hitSparks = [];
+    this.weapons = [createWeaponInstance(this.hero.startingWeaponId)];
+    this.passives = {};
     this.pickups = [];
     this.pendingUpgrades = [];
     this.elapsed = 0;
     this.spawnTimer = 1;
-    this.fireTimer = 0;
     this.damageTimer = 0;
     this.hurtTimer = 0;
     this.magnetTimer = 0;
@@ -159,6 +201,7 @@ export class Game {
     this.gold = 0;
     this.running = true;
     this.gameOver = false;
+    this.syncOrbitToys();
     this.spawnBlockers();
   }
 
@@ -173,25 +216,30 @@ export class Game {
     this.bombFlashTimer = Math.max(0, this.bombFlashTimer - deltaSeconds);
     this.updatePlayer(deltaSeconds, input);
     this.spawnTimer -= deltaSeconds;
-    this.fireTimer -= deltaSeconds;
     this.damageTimer -= deltaSeconds;
 
     if (this.spawnTimer <= 0) {
       this.spawnEnemy();
       const midPressure = clamp(this.elapsed / 180, 0, 1);
-      // Slower spawns in the first ~45s, then ramp; after 4 min it gets much denser.
       const earlyEase = clamp(1 - this.elapsed / 45, 0, 1);
       const lateHard = clamp((this.elapsed - LATE_HARD_ELAPSED) / 90, 0, 1);
       this.spawnTimer =
-        randomRange(0.55, 1.2) *
-        (1 - midPressure * 0.35) *
-        (1 + earlyEase * 0.95) *
-        (1 - lateHard * 0.6);
+        (randomRange(0.55, 1.2) *
+          (1 - midPressure * 0.35) *
+          (1 + earlyEase * 0.95) *
+          (1 - lateHard * 0.6)) /
+        this.difficulty.spawnRate;
     }
 
     this.updateEnemies(deltaSeconds);
-    this.autoFire();
+    this.updateWeapons(deltaSeconds);
     this.updateProjectiles(deltaSeconds);
+    this.updateWebPools(deltaSeconds);
+    this.updateOrbitToys(deltaSeconds);
+    this.updateExplosions(deltaSeconds);
+    this.updateLingeringPuffs(deltaSeconds);
+    this.updateHitSparks(deltaSeconds);
+    this.cullDefeatedEnemies();
     this.collectPickups();
 
     if (this.player.hp <= 0) {
@@ -203,8 +251,13 @@ export class Game {
   draw(ctx: CanvasRenderingContext2D): void {
     this.drawBackground(ctx);
     this.drawBlockers(ctx);
+    this.drawWebPools(ctx);
+    this.drawLingeringPuffs(ctx);
     this.drawPickups(ctx);
     this.drawProjectiles(ctx);
+    this.drawExplosions(ctx);
+    this.drawOrbitToys(ctx);
+    this.drawHitSparks(ctx);
     this.drawEnemies(ctx);
     this.drawPlayer(ctx);
     this.drawBombFlash(ctx);
@@ -219,7 +272,7 @@ export class Game {
       return;
     }
 
-    this.applyUpgrade(selected.id);
+    this.applyUpgrade(selected);
     this.pendingUpgrades = [];
     this.processLevelUps();
   }
@@ -239,10 +292,11 @@ export class Game {
       pausedForUpgrade: this.pendingUpgrades.length > 0,
       gameOver: this.gameOver,
       pendingUpgrades: this.pendingUpgrades,
+      weapons: this.weapons.map((weapon) => ({ ...weapon })),
     };
   }
 
-  getRunSummary(): RunSummary {
+  getRunSummary() {
     return {
       heroId: this.hero.id,
       heroName: this.hero.name,
@@ -291,18 +345,24 @@ export class Game {
       enemy.animTime += deltaSeconds;
       enemy.hitTimer = Math.max(0, enemy.hitTimer - deltaSeconds);
       enemy.phaseTimer = Math.max(0, enemy.phaseTimer - deltaSeconds);
+      enemy.slowTimer = Math.max(0, enemy.slowTimer - deltaSeconds);
 
+      if (enemy.slowTimer <= 0) {
+        enemy.slowMultiplier = 1;
+      }
+
+      const speedScale = enemy.slowMultiplier;
       const toPlayer = normalize({
         x: this.player.position.x - enemy.position.x,
         y: this.player.position.y - enemy.position.y,
       });
 
       if (enemy.kind === 'mother-slipper') {
-        this.updateMotherSlipper(enemy, deltaSeconds, toPlayer);
+        this.updateMotherSlipper(enemy, deltaSeconds, toPlayer, speedScale);
       } else {
         const next = {
-          x: enemy.position.x + toPlayer.x * enemy.speed * deltaSeconds,
-          y: enemy.position.y + toPlayer.y * enemy.speed * deltaSeconds,
+          x: enemy.position.x + toPlayer.x * enemy.speed * speedScale * deltaSeconds,
+          y: enemy.position.y + toPlayer.y * enemy.speed * speedScale * deltaSeconds,
         };
         enemy.position = this.moveWithBlockers(
           enemy.position,
@@ -333,6 +393,7 @@ export class Game {
     enemy: Enemy,
     deltaSeconds: number,
     toPlayer: Vec2,
+    speedScale: number,
   ): void {
     const definition = getEnemyDefinition('mother-slipper');
     const tellDuration = definition.tellDuration ?? 0.45;
@@ -343,8 +404,8 @@ export class Game {
 
     if (enemy.behavior === 'chase') {
       const next = {
-        x: enemy.position.x + toPlayer.x * enemy.speed * deltaSeconds,
-        y: enemy.position.y + toPlayer.y * enemy.speed * deltaSeconds,
+        x: enemy.position.x + toPlayer.x * enemy.speed * speedScale * deltaSeconds,
+        y: enemy.position.y + toPlayer.y * enemy.speed * speedScale * deltaSeconds,
       };
       enemy.position = this.moveWithBlockers(
         enemy.position,
@@ -387,7 +448,7 @@ export class Game {
     }
 
     if (enemy.behavior === 'charge') {
-      const chargeSpeed = enemy.speed * chargeMultiplier;
+      const chargeSpeed = enemy.speed * chargeMultiplier * speedScale;
       const next = {
         x:
           enemy.position.x +
@@ -414,10 +475,9 @@ export class Game {
       return;
     }
 
-    // recover: slow shuffle toward player before the next scold.
     const next = {
-      x: enemy.position.x + toPlayer.x * enemy.speed * 0.45 * deltaSeconds,
-      y: enemy.position.y + toPlayer.y * enemy.speed * 0.45 * deltaSeconds,
+      x: enemy.position.x + toPlayer.x * enemy.speed * 0.45 * speedScale * deltaSeconds,
+      y: enemy.position.y + toPlayer.y * enemy.speed * 0.45 * speedScale * deltaSeconds,
     };
     enemy.position = this.moveWithBlockers(enemy.position, next, enemy.radius);
 
@@ -431,15 +491,103 @@ export class Game {
     }
   }
 
-  private autoFire(): void {
-    if (this.fireTimer > 0 || this.enemies.length === 0) {
-      return;
+  private updateWeapons(deltaSeconds: number): void {
+    for (const weapon of this.weapons) {
+      weapon.cooldownTimer = Math.max(0, weapon.cooldownTimer - deltaSeconds);
+
+      if (weapon.cooldownTimer > 0) {
+        continue;
+      }
+
+      const stats = getWeaponStats(weapon, this.passives);
+
+      switch (stats.kind) {
+        case 'star-throw':
+          if (this.fireStarThrow(weapon, stats.stats)) {
+            weapon.cooldownTimer = stats.stats.cooldown;
+          }
+          break;
+        case 'web-pool':
+          if (this.fireWebPool(weapon, stats.stats)) {
+            weapon.cooldownTimer = stats.stats.cooldown;
+          }
+          break;
+        case 'orbit-toy':
+          this.syncOrbitToys();
+          break;
+        case 'pillow-pop':
+          if (this.firePillowPop(weapon, stats.stats)) {
+            weapon.cooldownTimer = stats.stats.cooldown;
+          }
+          break;
+        case 'marble-bounce':
+          if (this.fireMarbleBounce(weapon, stats.stats)) {
+            weapon.cooldownTimer = stats.stats.cooldown;
+          }
+          break;
+      }
+    }
+  }
+
+  private fireStarThrow(
+    weapon: WeaponInstance,
+    stats: StarThrowStats,
+  ): boolean {
+    if (this.enemies.length === 0) {
+      return false;
     }
 
     const target = this.findClosestEnemy();
-
     if (!target) {
-      return;
+      return false;
+    }
+
+    const baseDirection = normalize({
+      x: target.position.x - this.player.position.x,
+      y: target.position.y - this.player.position.y,
+    });
+
+    const amount = stats.amount;
+    const offsets =
+      amount <= 1
+        ? [0]
+        : amount === 2
+          ? [-stats.spreadRadians / 2, stats.spreadRadians / 2]
+          : Array.from({ length: amount }, (_, index) => {
+              const step = stats.spreadRadians / (amount - 1);
+              return -stats.spreadRadians / 2 + step * index;
+            });
+
+    for (const offset of offsets) {
+      const direction = rotateVector(baseDirection, offset);
+      this.spawnProjectile({
+        kind: 'star-throw',
+        weaponId: weapon.id,
+        position: { ...this.player.position },
+        velocity: {
+          x: direction.x * stats.speed,
+          y: direction.y * stats.speed,
+        },
+        radius: stats.radius,
+        damage: stats.damage,
+        ttl: stats.ttl,
+        pierceRemaining: stats.pierce,
+        bouncesRemaining: 0,
+        evolved: weapon.evolved,
+      });
+    }
+
+    return true;
+  }
+
+  private fireWebPool(weapon: WeaponInstance, stats: WebPoolStats): boolean {
+    if (this.enemies.length === 0) {
+      return false;
+    }
+
+    const target = this.findClosestEnemy();
+    if (!target) {
+      return false;
     }
 
     const direction = normalize({
@@ -447,18 +595,159 @@ export class Game {
       y: target.position.y - this.player.position.y,
     });
 
-    this.projectiles.push({
-      id: this.nextEntityId++,
+    this.spawnProjectile({
+      kind: 'web-pool',
+      weaponId: weapon.id,
       position: { ...this.player.position },
       velocity: {
-        x: direction.x * this.player.projectileSpeed,
-        y: direction.y * this.player.projectileSpeed,
+        x: direction.x * stats.speed,
+        y: direction.y * stats.speed,
       },
-      radius: 7,
-      damage: this.player.damage,
-      ttl: 1.4,
+      radius: 8,
+      damage: stats.impactDamage,
+      ttl: 1.6,
+      pierceRemaining: 0,
+      bouncesRemaining: 0,
+      evolved: weapon.evolved,
+      poolChance: stats.poolChance,
+      poolRadius: stats.poolRadius,
+      poolDuration: stats.poolDuration,
+      slowStrength: stats.slowStrength,
+      tickDamage: stats.tickDamage,
+      pullStrength: stats.pullStrength,
     });
-    this.fireTimer = this.player.cooldown;
+
+    return true;
+  }
+
+  private firePillowPop(weapon: WeaponInstance, stats: PillowPopStats): boolean {
+    const positions = this.enemies
+      .filter(
+        (enemy) =>
+          distanceSquared(enemy.position, this.player.position) <=
+          stats.targetingRange * stats.targetingRange,
+      )
+      .map((enemy) => enemy.position);
+
+    const target = findDensestClusterCenter(positions, stats.blastRadius);
+
+    if (!target) {
+      return false;
+    }
+
+    const direction = normalize({
+      x: target.x - this.player.position.x,
+      y: target.y - this.player.position.y,
+    });
+
+    this.spawnProjectile({
+      kind: 'pillow-pop',
+      weaponId: weapon.id,
+      position: { ...this.player.position },
+      velocity: {
+        x: direction.x * 420,
+        y: direction.y * 420,
+      },
+      radius: 10,
+      damage: stats.explosionDamage,
+      ttl: 0.85,
+      pierceRemaining: 0,
+      bouncesRemaining: 0,
+      evolved: weapon.evolved,
+      poolRadius: stats.blastRadius,
+      poolDuration: stats.lingeringDuration,
+      tickDamage: stats.lingeringTickDamage,
+    });
+
+    return true;
+  }
+
+  private fireMarbleBounce(
+    weapon: WeaponInstance,
+    stats: MarbleBounceStats,
+  ): boolean {
+    if (this.enemies.length === 0) {
+      return false;
+    }
+
+    const target = this.findClosestEnemy();
+    if (!target) {
+      return false;
+    }
+
+    const direction = normalize({
+      x: target.position.x - this.player.position.x,
+      y: target.position.y - this.player.position.y,
+    });
+
+    for (let index = 0; index < stats.amount; index += 1) {
+      const spread = stats.amount > 1 ? (index - 0.5) * 0.18 : 0;
+      const shotDirection = rotateVector(direction, spread);
+
+      this.spawnProjectile({
+        kind: 'marble-bounce',
+        weaponId: weapon.id,
+        position: { ...this.player.position },
+        velocity: {
+          x: shotDirection.x * stats.speed,
+          y: shotDirection.y * stats.speed,
+        },
+        radius: stats.radius,
+        damage: stats.damage,
+        ttl: stats.ttl,
+        pierceRemaining: 0,
+        bouncesRemaining: stats.bounces,
+        evolved: weapon.evolved,
+        finalSplit: stats.finalSplit,
+        splitDamageMultiplier: stats.splitDamageMultiplier,
+      });
+    }
+
+    return true;
+  }
+
+  private spawnProjectile(
+    config: Pick<
+      Projectile,
+      | 'kind'
+      | 'weaponId'
+      | 'position'
+      | 'velocity'
+      | 'radius'
+      | 'damage'
+      | 'ttl'
+      | 'pierceRemaining'
+      | 'bouncesRemaining'
+      | 'evolved'
+    > &
+      Partial<
+        Pick<
+          Projectile,
+          | 'poolChance'
+          | 'poolRadius'
+          | 'poolDuration'
+          | 'slowStrength'
+          | 'tickDamage'
+          | 'pullStrength'
+          | 'finalSplit'
+          | 'splitDamageMultiplier'
+        >
+      >,
+  ): void {
+    this.projectiles.push({
+      id: this.nextEntityId++,
+      hitEnemyIds: new Set<number>(),
+      animTime: 0,
+      poolChance: 0,
+      poolRadius: 0,
+      poolDuration: 0,
+      slowStrength: 0,
+      tickDamage: 0,
+      pullStrength: 0,
+      finalSplit: false,
+      splitDamageMultiplier: 0.5,
+      ...config,
+    });
   }
 
   private updateProjectiles(deltaSeconds: number): void {
@@ -466,32 +755,495 @@ export class Game {
       projectile.position.x += projectile.velocity.x * deltaSeconds;
       projectile.position.y += projectile.velocity.y * deltaSeconds;
       projectile.ttl -= deltaSeconds;
+      projectile.animTime += deltaSeconds;
 
-      if (
-        projectile.ttl > 0 &&
-        this.collidesWithBlockers(projectile.position, projectile.radius)
-      ) {
-        projectile.ttl = 0;
+      if (projectile.ttl <= 0) {
+        if (projectile.kind === 'pillow-pop') {
+          this.spawnExplosion(
+            projectile.weaponId,
+            projectile.position,
+            projectile.damage,
+            projectile.poolRadius,
+            projectile.evolved,
+            projectile.poolDuration,
+            projectile.tickDamage,
+          );
+        }
+        continue;
       }
-    }
 
-    for (const projectile of this.projectiles) {
-      for (const enemy of this.enemies) {
-        const hitDistance = projectile.radius + enemy.radius;
-
-        if (
-          projectile.ttl > 0 &&
-          enemy.hp > 0 &&
-          distanceSquared(projectile.position, enemy.position) <=
-            hitDistance * hitDistance
-        ) {
-          enemy.hp -= projectile.damage;
-          enemy.hitTimer = ENEMY_HIT_FLASH_SECONDS;
+      if (this.collidesWithBlockers(projectile.position, projectile.radius)) {
+        if (projectile.kind === 'marble-bounce' && projectile.bouncesRemaining > 0) {
+          this.bounceProjectileOffBlockers(projectile);
+        } else {
           projectile.ttl = 0;
         }
       }
     }
 
+    for (const projectile of this.projectiles) {
+      if (projectile.ttl <= 0) {
+        continue;
+      }
+
+      for (const enemy of this.enemies) {
+        if (enemy.hp <= 0 || projectile.hitEnemyIds.has(enemy.id)) {
+          continue;
+        }
+
+        const hitDistance = projectile.radius + enemy.radius;
+
+        if (
+          distanceSquared(projectile.position, enemy.position) >
+          hitDistance * hitDistance
+        ) {
+          continue;
+        }
+
+        this.applyDamage(enemy, projectile.damage);
+        projectile.hitEnemyIds.add(enemy.id);
+        this.spawnHitSpark(projectile.weaponId, enemy.position);
+
+        if (projectile.kind === 'web-pool') {
+          if (Math.random() < projectile.poolChance) {
+            this.spawnWebPool(
+              projectile.weaponId,
+              enemy.position,
+              projectile.poolRadius,
+              projectile.poolDuration,
+              projectile.tickDamage,
+              projectile.slowStrength,
+              projectile.pullStrength,
+              projectile.evolved,
+            );
+          }
+          projectile.ttl = 0;
+          continue;
+        }
+
+        if (projectile.kind === 'pillow-pop') {
+          this.spawnExplosion(
+            projectile.weaponId,
+            enemy.position,
+            projectile.damage,
+            projectile.poolRadius,
+            projectile.evolved,
+            projectile.poolDuration,
+            projectile.tickDamage,
+          );
+          projectile.ttl = 0;
+          continue;
+        }
+
+        if (projectile.kind === 'marble-bounce') {
+          if (projectile.bouncesRemaining > 0) {
+            projectile.bouncesRemaining -= 1;
+
+            if (
+              projectile.bouncesRemaining === 0 &&
+              projectile.finalSplit
+            ) {
+              this.splitMarble(projectile);
+            }
+
+            const nextTarget = this.findNearestEnemy(
+              enemy.position,
+              projectile.hitEnemyIds,
+            );
+
+            if (nextTarget) {
+              const direction = normalize({
+                x: nextTarget.position.x - projectile.position.x,
+                y: nextTarget.position.y - projectile.position.y,
+              });
+              const speed = Math.hypot(
+                projectile.velocity.x,
+                projectile.velocity.y,
+              );
+              projectile.velocity = {
+                x: direction.x * speed,
+                y: direction.y * speed,
+              };
+            } else {
+              projectile.velocity = reflectVector(
+                projectile.velocity,
+                normalize({
+                  x: this.player.position.x - enemy.position.x,
+                  y: this.player.position.y - enemy.position.y,
+                }),
+              );
+            }
+          } else {
+            projectile.ttl = 0;
+          }
+          continue;
+        }
+
+        if (projectile.pierceRemaining > 0) {
+          projectile.pierceRemaining -= 1;
+
+          if (
+            projectile.kind === 'star-throw' &&
+            projectile.evolved &&
+            Math.random() < 0.15
+          ) {
+            const direction = normalize(projectile.velocity);
+            this.spawnProjectile({
+              kind: 'star-throw',
+              weaponId: projectile.weaponId,
+              position: { ...projectile.position },
+              velocity: rotateVector(
+                {
+                  x: direction.x * Math.hypot(projectile.velocity.x, projectile.velocity.y),
+                  y: direction.y * Math.hypot(projectile.velocity.x, projectile.velocity.y),
+                },
+                randomRange(-0.5, 0.5),
+              ),
+              radius: projectile.radius,
+              damage: projectile.damage * 0.6,
+              ttl: projectile.ttl,
+              pierceRemaining: 1,
+              bouncesRemaining: 0,
+              evolved: true,
+            });
+          }
+        } else {
+          projectile.ttl = 0;
+        }
+      }
+    }
+
+    this.projectiles = this.projectiles.filter(
+      (projectile) => projectile.ttl > 0,
+    );
+  }
+
+  private bounceProjectileOffBlockers(projectile: Projectile): void {
+    projectile.bouncesRemaining -= 1;
+    projectile.velocity = {
+      x: -projectile.velocity.x,
+      y: -projectile.velocity.y,
+    };
+
+    if (projectile.bouncesRemaining === 0 && projectile.finalSplit) {
+      this.splitMarble(projectile);
+    }
+  }
+
+  private splitMarble(projectile: Projectile): void {
+    const speed = Math.hypot(projectile.velocity.x, projectile.velocity.y);
+    const baseAngle = Math.atan2(projectile.velocity.y, projectile.velocity.x);
+
+    for (const offset of [-0.45, 0.45]) {
+      const angle = baseAngle + offset;
+      this.spawnProjectile({
+        kind: 'marble-bounce',
+        weaponId: projectile.weaponId,
+        position: { ...projectile.position },
+        velocity: {
+          x: Math.cos(angle) * speed * 0.85,
+          y: Math.sin(angle) * speed * 0.85,
+        },
+        radius: projectile.radius * 0.75,
+        damage: projectile.damage * projectile.splitDamageMultiplier,
+        ttl: projectile.ttl,
+        pierceRemaining: 0,
+        bouncesRemaining: 1,
+        evolved: projectile.evolved,
+      });
+    }
+  }
+
+  private spawnWebPool(
+    weaponId: WeaponInstance['id'],
+    position: Vec2,
+    radius: number,
+    duration: number,
+    tickDamage: number,
+    slowStrength: number,
+    pullStrength: number,
+    evolved: boolean,
+  ): void {
+    this.webPools.push({
+      id: this.nextEntityId++,
+      weaponId,
+      position: { ...position },
+      radius,
+      ttl: duration,
+      tickTimer: 0,
+      tickDamage,
+      slowStrength,
+      pullStrength,
+      evolved,
+      animTime: 0,
+    });
+  }
+
+  private updateWebPools(deltaSeconds: number): void {
+    for (const pool of this.webPools) {
+      pool.ttl -= deltaSeconds;
+      pool.animTime += deltaSeconds;
+      pool.tickTimer += deltaSeconds;
+
+      for (const enemy of this.enemies) {
+        if (enemy.hp <= 0) {
+          continue;
+        }
+
+        const distance = distanceSquared(enemy.position, pool.position);
+        const limit = pool.radius + enemy.radius;
+
+        if (distance > limit * limit) {
+          continue;
+        }
+
+        enemy.slowTimer = Math.max(enemy.slowTimer, 0.35);
+        enemy.slowMultiplier = Math.min(
+          enemy.slowMultiplier,
+          1 - pool.slowStrength,
+        );
+
+        if (pool.pullStrength > 0) {
+          const direction = normalize({
+            x: pool.position.x - enemy.position.x,
+            y: pool.position.y - enemy.position.y,
+          });
+          enemy.position.x += direction.x * pool.pullStrength * deltaSeconds;
+          enemy.position.y += direction.y * pool.pullStrength * deltaSeconds;
+        }
+      }
+
+      if (pool.tickTimer >= WEB_POOL_TICK_INTERVAL) {
+        pool.tickTimer = 0;
+
+        for (const enemy of this.enemies) {
+          if (enemy.hp <= 0) {
+            continue;
+          }
+
+          const limit = pool.radius + enemy.radius;
+          if (
+            distanceSquared(enemy.position, pool.position) <= limit * limit
+          ) {
+            this.applyDamage(enemy, pool.tickDamage);
+          }
+        }
+      }
+    }
+
+    this.webPools = this.webPools.filter((pool) => pool.ttl > 0);
+  }
+
+  private syncOrbitToys(): void {
+    const weapon = this.weapons.find((entry) => entry.id === 'orbit-toy');
+
+    if (!weapon) {
+      this.orbitToys = [];
+      return;
+    }
+
+    const stats = getWeaponStats(weapon, this.passives);
+
+    if (stats.kind !== 'orbit-toy') {
+      return;
+    }
+
+    while (this.orbitToys.length < stats.stats.count) {
+      const index = this.orbitToys.length;
+      this.orbitToys.push({
+        id: this.nextEntityId++,
+        weaponId: weapon.id,
+        angle: (Math.PI * 2 * index) / stats.stats.count,
+        orbitRadius: stats.stats.orbitRadius,
+        rotationSpeed: stats.stats.rotationSpeed,
+        damage: stats.stats.damage,
+        hitDelay: stats.stats.hitDelay,
+        drawSize: stats.stats.drawSize,
+        evolved: weapon.evolved,
+        hitTimers: new Map<number, number>(),
+        spriteIndex: index,
+      });
+    }
+
+    while (this.orbitToys.length > stats.stats.count) {
+      this.orbitToys.pop();
+    }
+
+    for (const toy of this.orbitToys) {
+      toy.orbitRadius = stats.stats.orbitRadius;
+      toy.rotationSpeed = stats.stats.rotationSpeed;
+      toy.damage = stats.stats.damage;
+      toy.hitDelay = stats.stats.hitDelay;
+      toy.drawSize = stats.stats.drawSize;
+      toy.evolved = weapon.evolved;
+    }
+  }
+
+  private updateOrbitToys(deltaSeconds: number): void {
+    this.syncOrbitToys();
+
+    for (const toy of this.orbitToys) {
+      toy.angle += (toy.rotationSpeed * Math.PI) / 180 * deltaSeconds;
+
+      const position = {
+        x: this.player.position.x + Math.cos(toy.angle) * toy.orbitRadius,
+        y: this.player.position.y + Math.sin(toy.angle) * toy.orbitRadius,
+      };
+
+      for (const [enemyId, timer] of toy.hitTimers) {
+        const nextTimer = timer - deltaSeconds;
+        if (nextTimer <= 0) {
+          toy.hitTimers.delete(enemyId);
+        } else {
+          toy.hitTimers.set(enemyId, nextTimer);
+        }
+      }
+
+      for (const enemy of this.enemies) {
+        if (enemy.hp <= 0 || toy.hitTimers.has(enemy.id)) {
+          continue;
+        }
+
+        const hitDistance = enemy.radius + toy.drawSize * 0.35;
+
+        if (
+          distanceSquared(position, enemy.position) >
+          hitDistance * hitDistance
+        ) {
+          continue;
+        }
+
+        this.applyDamage(enemy, toy.damage);
+        toy.hitTimers.set(enemy.id, toy.hitDelay);
+        this.spawnHitSpark(toy.weaponId, enemy.position);
+      }
+    }
+  }
+
+  private spawnExplosion(
+    weaponId: WeaponInstance['id'],
+    position: Vec2,
+    damage: number,
+    radius: number,
+    evolved: boolean,
+    lingeringDuration: number,
+    lingeringTickDamage: number,
+  ): void {
+    this.explosions.push({
+      id: this.nextEntityId++,
+      weaponId,
+      position: { ...position },
+      radius,
+      damage,
+      ttl: 0.28,
+      maxTtl: 0.28,
+      evolved,
+      lingeringDuration,
+      lingeringTickDamage,
+    });
+
+    for (const enemy of this.enemies) {
+      if (enemy.hp <= 0) {
+        continue;
+      }
+
+      const limit = radius + enemy.radius;
+      if (distanceSquared(enemy.position, position) <= limit * limit) {
+        this.applyDamage(enemy, damage);
+      }
+    }
+
+    if (lingeringDuration > 0) {
+      this.lingeringPuffs.push({
+        id: this.nextEntityId++,
+        weaponId,
+        position: { ...position },
+        radius: radius * 0.85,
+        ttl: lingeringDuration,
+        tickTimer: 0,
+        tickDamage: lingeringTickDamage,
+        evolved,
+        animTime: 0,
+      });
+    }
+  }
+
+  private updateExplosions(deltaSeconds: number): void {
+    for (const explosion of this.explosions) {
+      explosion.ttl -= deltaSeconds;
+    }
+
+    this.explosions = this.explosions.filter(
+      (explosion) => explosion.ttl > 0,
+    );
+  }
+
+  private updateLingeringPuffs(deltaSeconds: number): void {
+    for (const puff of this.lingeringPuffs) {
+      puff.ttl -= deltaSeconds;
+      puff.animTime += deltaSeconds;
+      puff.tickTimer += deltaSeconds;
+
+      if (puff.tickTimer < LINGERING_TICK_INTERVAL) {
+        continue;
+      }
+
+      puff.tickTimer = 0;
+
+      for (const enemy of this.enemies) {
+        if (enemy.hp <= 0) {
+          continue;
+        }
+
+        const limit = puff.radius + enemy.radius;
+        if (distanceSquared(enemy.position, puff.position) <= limit * limit) {
+          this.applyDamage(enemy, puff.tickDamage);
+        }
+      }
+    }
+
+    this.lingeringPuffs = this.lingeringPuffs.filter((puff) => puff.ttl > 0);
+  }
+
+  private spawnHitSpark(weaponId: WeaponInstance['id'], position: Vec2): void {
+    const sprites = getWeaponDefinition(weaponId).sprites;
+    const spriteSrc =
+      sprites.hit?.[0] ??
+      sprites.orbitHit ??
+      sprites.bounceSpark ??
+      sprites.projectile?.[0];
+
+    if (!spriteSrc) {
+      return;
+    }
+
+    this.hitSparks.push({
+      id: this.nextEntityId++,
+      position: { ...position },
+      ttl: HIT_SPARK_SECONDS,
+      maxTtl: HIT_SPARK_SECONDS,
+      spriteSrc,
+    });
+  }
+
+  private updateHitSparks(deltaSeconds: number): void {
+    for (const spark of this.hitSparks) {
+      spark.ttl -= deltaSeconds;
+    }
+
+    this.hitSparks = this.hitSparks.filter((spark) => spark.ttl > 0);
+  }
+
+  private applyDamage(enemy: Enemy, amount: number): void {
+    if (enemy.hp <= 0) {
+      return;
+    }
+
+    enemy.hp -= amount;
+    enemy.hitTimer = ENEMY_HIT_FLASH_SECONDS;
+  }
+
+  private cullDefeatedEnemies(): void {
     const defeated = this.enemies.filter((enemy) => enemy.hp <= 0);
 
     for (const enemy of defeated) {
@@ -499,9 +1251,6 @@ export class Game {
     }
 
     this.enemies = this.enemies.filter((enemy) => enemy.hp > 0);
-    this.projectiles = this.projectiles.filter(
-      (projectile) => projectile.ttl > 0,
-    );
   }
 
   private defeatEnemy(enemy: Enemy, allowSpecial: boolean): void {
@@ -621,29 +1370,61 @@ export class Game {
     }
 
     for (const enemy of defeated) {
-      // Bomb kills always drop gems only — no special chain reactions.
       this.defeatEnemy(enemy, false);
     }
 
     this.enemies = this.enemies.filter((enemy) => enemy.hp > 0);
   }
 
-  private applyUpgrade(upgradeId: Upgrade['id']): void {
-    if (upgradeId === 'speed') {
-      this.player.speed *= 1.12;
+  private applyUpgrade(upgrade: Upgrade): void {
+    if (upgrade.kind === 'weapon-new' && upgrade.weaponId) {
+      this.weapons.push(createWeaponInstance(upgrade.weaponId));
+      this.syncOrbitToys();
+      return;
     }
 
-    if (upgradeId === 'damage') {
-      this.player.damage *= 1.2;
+    if (upgrade.kind === 'weapon-level' && upgrade.weaponId) {
+      const weapon = this.weapons.find((entry) => entry.id === upgrade.weaponId);
+
+      if (weapon && weapon.level < MAX_WEAPON_LEVEL) {
+        weapon.level += 1;
+
+        if (canEvolve(weapon, this.passives)) {
+          weapon.evolved = true;
+        }
+      }
+
+      this.syncOrbitToys();
+      return;
     }
 
-    if (upgradeId === 'cooldown') {
-      this.player.cooldown *= 0.86;
-    }
+    if (upgrade.kind === 'passive' && upgrade.passiveId) {
+      const passiveId = upgrade.passiveId;
 
-    if (upgradeId === 'maxHp') {
-      this.player.maxHp += 18;
-      this.player.hp = Math.min(this.player.maxHp, this.player.hp + 32);
+      if (passiveId === 'speed') {
+        this.player.speed *= 1.12;
+        return;
+      }
+
+      if (passiveId === 'maxHp') {
+        this.player.maxHp += 18;
+        this.player.hp = Math.min(this.player.maxHp, this.player.hp + 32);
+        return;
+      }
+
+      const current = this.passives[passiveId] ?? 0;
+      const maxLevel = 3;
+      if (current < maxLevel) {
+        this.passives[passiveId] = current + 1;
+      }
+
+      for (const weapon of this.weapons) {
+        if (canEvolve(weapon, this.passives)) {
+          weapon.evolved = true;
+        }
+      }
+
+      this.syncOrbitToys();
     }
   }
 
@@ -655,7 +1436,10 @@ export class Game {
     this.xp -= this.xpToNext;
     this.level += 1;
     this.xpToNext = Math.ceil(this.xpToNext * 1.35 + 2);
-    this.pendingUpgrades = drawUpgradeChoices();
+    this.pendingUpgrades = drawAttackUpgradeChoices(
+      this.weapons,
+      this.passives,
+    );
   }
 
   private spawnEnemy(): void {
@@ -692,12 +1476,14 @@ export class Game {
       kind: definition.id,
       position,
       radius: definition.radius,
-      hp: definition.baseHp * pressure,
+      hp: definition.baseHp * pressure * this.difficulty.enemyHp,
       speed:
-        randomRange(definition.minSpeed, definition.maxSpeed) +
-        this.elapsed * 0.05 +
-        lateHard * 42,
-      damage: definition.damage * (1 + lateHard * 0.4),
+        (randomRange(definition.minSpeed, definition.maxSpeed) +
+          this.elapsed * 0.05 +
+          lateHard * 42) *
+        this.difficulty.enemySpeed,
+      damage:
+        definition.damage * (1 + lateHard * 0.4) * this.difficulty.enemyDamage,
       color: definition.color,
       animTime: Math.random(),
       facingRight: position.x < this.player.position.x,
@@ -705,6 +1491,8 @@ export class Game {
       behavior: 'chase',
       phaseTimer: kind === 'mother-slipper' ? randomRange(0.6, 1.4) : 0,
       chargeDirection: { x: 0, y: 0 },
+      slowTimer: 0,
+      slowMultiplier: 1,
     });
   }
 
@@ -740,6 +1528,29 @@ export class Game {
     return closest;
   }
 
+  private findNearestEnemy(
+    from: Vec2,
+    exclude: Set<number>,
+  ): Enemy | null {
+    let closest: Enemy | null = null;
+    let closestDistance = Number.POSITIVE_INFINITY;
+
+    for (const enemy of this.enemies) {
+      if (enemy.hp <= 0 || exclude.has(enemy.id)) {
+        continue;
+      }
+
+      const distance = distanceSquared(enemy.position, from);
+
+      if (distance < closestDistance) {
+        closest = enemy;
+        closestDistance = distance;
+      }
+    }
+
+    return closest;
+  }
+
   private drawBackground(ctx: CanvasRenderingContext2D): void {
     const tile = loadImage(kidsRoomFloor.tileSrc);
 
@@ -753,7 +1564,6 @@ export class Game {
         ctx.fillRect(0, 0, this.world.width, this.world.height);
         ctx.restore();
 
-        // Soften the pastel floor so heroes, enemies, and pickups stay readable.
         ctx.fillStyle = 'rgba(24, 20, 16, 0.22)';
         ctx.fillRect(0, 0, this.world.width, this.world.height);
         return;
@@ -835,6 +1645,7 @@ export class Game {
       ...allBlockerSpriteSources(),
       ...allEnemySpriteSources(),
       ...allPickupSpriteSources(),
+      ...allWeaponSpriteSources(),
     ];
 
     if (heroSprites) {
@@ -954,6 +1765,18 @@ export class Game {
         flipX: !enemy.facingRight,
       });
 
+      if (drewSprite && enemy.slowTimer > 0) {
+        const slowSrc = getWeaponDefinition('web-pool').sprites.slowIndicator;
+        if (slowSrc) {
+          drawSprite(ctx, slowSrc, {
+            x: enemy.position.x,
+            y: enemy.position.y - definition.sprites.drawSize * 0.45,
+            size: 24,
+            alpha: 0.85,
+          });
+        }
+      }
+
       if (drewSprite) {
         continue;
       }
@@ -994,9 +1817,30 @@ export class Game {
   }
 
   private drawProjectiles(ctx: CanvasRenderingContext2D): void {
-    ctx.fillStyle = this.hero.accent;
-
     for (const projectile of this.projectiles) {
+      const definition = getWeaponDefinition(projectile.weaponId);
+      const frames =
+        projectile.evolved && definition.sprites.evolvedProjectile
+          ? [definition.sprites.evolvedProjectile]
+          : definition.sprites.projectile;
+
+      if (frames && frames.length > 0) {
+        const spriteSrc = getAnimationFrame(
+          { frames, frameDuration: 0.12 },
+          projectile.animTime,
+        );
+        const drew = drawSprite(ctx, spriteSrc, {
+          x: projectile.position.x,
+          y: projectile.position.y,
+          size: PROJECTILE_DRAW_SIZE,
+        });
+
+        if (drew) {
+          continue;
+        }
+      }
+
+      ctx.fillStyle = this.hero.accent;
       ctx.beginPath();
       ctx.arc(
         projectile.position.x,
@@ -1006,6 +1850,125 @@ export class Game {
         Math.PI * 2,
       );
       ctx.fill();
+    }
+  }
+
+  private drawWebPools(ctx: CanvasRenderingContext2D): void {
+    for (const pool of this.webPools) {
+      const definition = getWeaponDefinition(pool.weaponId);
+      const frames =
+        pool.evolved && definition.sprites.poolNest
+          ? definition.sprites.poolNest
+          : definition.sprites.pool;
+
+      if (!frames || frames.length === 0) {
+        continue;
+      }
+
+      const spriteSrc = getAnimationFrame(
+        { frames, frameDuration: 0.18 },
+        pool.animTime,
+      );
+      drawSprite(ctx, spriteSrc, {
+        x: pool.position.x,
+        y: pool.position.y,
+        size: POOL_DRAW_SIZE * (pool.radius / 54),
+        alpha: clamp(pool.ttl / 4, 0.35, 1),
+      });
+
+      if (pool.evolved && definition.sprites.poolNestCenter) {
+        drawSprite(ctx, definition.sprites.poolNestCenter, {
+          x: pool.position.x,
+          y: pool.position.y,
+          size: 48,
+          alpha: 0.9,
+        });
+      }
+    }
+  }
+
+  private drawOrbitToys(ctx: CanvasRenderingContext2D): void {
+    for (const toy of this.orbitToys) {
+      const definition = getWeaponDefinition(toy.weaponId);
+      const position = {
+        x: this.player.position.x + Math.cos(toy.angle) * toy.orbitRadius,
+        y: this.player.position.y + Math.sin(toy.angle) * toy.orbitRadius,
+      };
+      const spriteSrc =
+        toy.evolved && definition.sprites.orbitEvolved
+          ? definition.sprites.orbitEvolved
+          : definition.sprites.orbitItems?.[
+              toy.spriteIndex % (definition.sprites.orbitItems?.length ?? 1)
+            ];
+
+      if (!spriteSrc) {
+        continue;
+      }
+
+      drawSprite(ctx, spriteSrc, {
+        x: position.x,
+        y: position.y,
+        size: toy.drawSize,
+      });
+    }
+  }
+
+  private drawExplosions(ctx: CanvasRenderingContext2D): void {
+    for (const explosion of this.explosions) {
+      const definition = getWeaponDefinition(explosion.weaponId);
+      const frames =
+        explosion.evolved && definition.sprites.storm
+          ? definition.sprites.storm
+          : definition.sprites.explosion;
+
+      if (!frames || frames.length === 0) {
+        continue;
+      }
+
+      const progress = 1 - explosion.ttl / explosion.maxTtl;
+      const spriteSrc = getAnimationFrame(
+        { frames, frameDuration: explosion.maxTtl / frames.length },
+        progress * explosion.maxTtl,
+      );
+
+      drawSprite(ctx, spriteSrc, {
+        x: explosion.position.x,
+        y: explosion.position.y,
+        size: EXPLOSION_DRAW_SIZE * (explosion.radius / 70),
+        alpha: clamp(explosion.ttl / explosion.maxTtl, 0.2, 1),
+      });
+    }
+  }
+
+  private drawLingeringPuffs(ctx: CanvasRenderingContext2D): void {
+    for (const puff of this.lingeringPuffs) {
+      const definition = getWeaponDefinition(puff.weaponId);
+      const spriteSrc =
+        puff.evolved && definition.sprites.storm?.[0]
+          ? definition.sprites.storm[0]
+          : definition.sprites.puff;
+
+      if (!spriteSrc) {
+        continue;
+      }
+
+      drawSprite(ctx, spriteSrc, {
+        x: puff.position.x,
+        y: puff.position.y,
+        size: PUFF_DRAW_SIZE * (puff.radius / 60),
+        alpha: clamp(puff.ttl / 2, 0.25, 0.75),
+      });
+    }
+  }
+
+  private drawHitSparks(ctx: CanvasRenderingContext2D): void {
+    for (const spark of this.hitSparks) {
+      drawSprite(ctx, spark.spriteSrc, {
+        x: spark.position.x,
+        y: spark.position.y,
+        size: 36,
+        alpha: clamp(spark.ttl / spark.maxTtl, 0.15, 1),
+      });
     }
   }
 

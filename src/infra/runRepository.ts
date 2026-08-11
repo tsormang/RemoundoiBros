@@ -70,6 +70,33 @@ export async function loadPlayerStats(): Promise<PlayerStats[]> {
   return ensureAllHeroStats(getLocalPlayerStats());
 }
 
+export async function resetAllPlayerStats(): Promise<void> {
+  const emptyStats = ensureAllHeroStats([]);
+  const updatedAt = new Date().toISOString();
+  const resetStats = emptyStats.map((entry) => ({ ...entry, updatedAt }));
+
+  saveLocalPlayerStatsList(resetStats);
+  localStorage.removeItem(RUNS_STORAGE_KEY);
+
+  if (!isSupabaseConfigured()) {
+    return;
+  }
+
+  const supabase = getSupabaseClient();
+  const [{ error: statsError }, { error: runsError }] = await Promise.all([
+    supabase.from('player_stats').upsert(resetStats.map(toPlayerStatsRow)),
+    supabase.from('run_summaries').delete().neq('hero_id', ''),
+  ]);
+
+  if (statsError) {
+    console.warn('Could not reset player stats in Supabase:', statsError.message);
+  }
+
+  if (runsError) {
+    console.warn('Could not clear run summaries in Supabase:', runsError.message);
+  }
+}
+
 export function getLocalRunSummaries(): RunSummary[] {
   return readJson<RunSummary[]>(RUNS_STORAGE_KEY, []);
 }
