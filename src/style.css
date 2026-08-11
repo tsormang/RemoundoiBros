@@ -47,10 +47,10 @@
 
 .hud {
   position: absolute;
-  inset: 16px auto auto 16px;
+  inset: 16px 16px auto 16px;
   display: grid;
   gap: 8px;
-  width: min(280px, calc(100% - 32px));
+  width: auto;
   pointer-events: none;
 }
 
@@ -136,20 +136,25 @@
 
 .hud__meta {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  flex-wrap: nowrap;
+  gap: 4px;
+  min-width: 0;
 }
 
 .hud__chip {
   display: inline-flex;
   align-items: baseline;
-  gap: 4px;
+  gap: 3px;
+  flex: 1 1 0;
+  justify-content: center;
+  min-width: 0;
   border: 1px solid rgba(245, 241, 232, 0.14);
   border-radius: 999px;
   background: rgba(245, 241, 232, 0.04);
-  padding: 2px 8px;
-  font-size: 0.72rem;
+  padding: 2px 5px;
+  font-size: 0.68rem;
   font-weight: 800;
+  white-space: nowrap;
 }
 
 .hud__chip-label {
@@ -157,7 +162,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.02em;
-  font-size: 0.62rem;
+  font-size: 0.58rem;
 }
 
 .xp-bar {
@@ -205,6 +210,157 @@
   background: rgba(16, 19, 24, 0.55);
   padding: 20px;
   overflow: auto;
+}
+
+.overlay--splash {
+  display: block;
+  padding: 0;
+  overflow: hidden;
+  background: #0a1020;
+  place-items: unset;
+}
+
+.splash {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  outline: none;
+  cursor: pointer;
+  overflow: hidden;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.splash__scene {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: #0a1020;
+}
+
+.splash__layer {
+  position: absolute;
+  /* Small overscan so parallax shifts stay inside the frame */
+  inset: -4%;
+  background-position: center;
+  background-repeat: no-repeat;
+  /* Fit full art (incl. both characters) in portrait and landscape */
+  background-size: contain;
+  will-change: transform;
+  pointer-events: none;
+  transform-origin: center center;
+}
+
+.splash__layer[data-layer='playground'] {
+  background-position: center 54%;
+}
+
+.splash__layer[data-layer='characters'] {
+  background-position: 40% center;
+}
+
+.splash__ui {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  padding: clamp(28px, 8vh, 72px) 20px clamp(36px, 10vh, 88px);
+  pointer-events: none;
+}
+
+.splash__title {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  text-align: center;
+  font-weight: normal;
+  line-height: 0.78;
+  letter-spacing: 0.02em;
+  filter: drop-shadow(0 3px 0 #1a2744) drop-shadow(0 6px 12px rgba(0, 0, 0, 0.45));
+  animation: splash-title-pulse 2.4s ease-in-out infinite;
+}
+
+.splash__title-line {
+  display: block;
+  color: #ffd24a;
+  background: linear-gradient(180deg, #ffe56a 12%, #f4a524 55%, #e87812 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.splash__title-line--remoundoi {
+  font-family: var(--font-title);
+  font-size: clamp(2.4rem, 10vw, 5rem);
+}
+
+.splash__title-line--bros {
+  font-family: var(--font-display);
+  font-size: clamp(2.6rem, 11vw, 5.5rem);
+  margin-top: -0.08em;
+}
+
+.splash__prompt {
+  margin: 0;
+  color: #f5f8ff;
+  font-size: clamp(0.95rem, 2.8vw, 1.25rem);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-shadow:
+    0 0 10px rgba(123, 183, 255, 0.55),
+    0 2px 0 rgba(0, 0, 0, 0.55);
+  animation: splash-prompt-pulse 2.4s ease-in-out infinite;
+}
+
+.splash__sr-hint {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@keyframes splash-title-pulse {
+  0%,
+  100% {
+    filter: drop-shadow(0 3px 0 #1a2744) drop-shadow(0 6px 12px rgba(0, 0, 0, 0.45));
+  }
+
+  50% {
+    filter: drop-shadow(0 3px 0 #1a2744) drop-shadow(0 0 14px rgba(123, 183, 255, 0.4));
+  }
+}
+
+@keyframes splash-prompt-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.72;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splash__title,
+  .splash__prompt {
+    animation: none;
+  }
+
+  .splash__layer {
+    will-change: auto;
+  }
 }
 
 .dialog {
@@ -516,15 +672,20 @@
 
 .touch-stick {
   position: absolute;
-  left: 18px;
-  bottom: 18px;
+  left: 0;
+  top: 0;
+  z-index: 2;
   display: none;
   width: 96px;
   height: 96px;
-  border: 1px solid rgba(245, 241, 232, 0.18);
+  border: 1px solid rgba(245, 241, 232, 0.22);
   border-radius: 50%;
-  background: rgba(16, 19, 24, 0.36);
+  background: rgba(16, 19, 24, 0.42);
   pointer-events: none;
+}
+
+.touch-stick.is-active {
+  display: block;
 }
 
 .touch-stick__nub {
@@ -537,16 +698,9 @@
   background: rgba(244, 201, 93, 0.92);
 }
 
-@media (max-width: 860px) {
-  .touch-stick {
-    display: block;
-  }
-}
-
 @media (max-width: 560px) {
   .hud {
-    inset: 10px auto auto 10px;
-    width: min(240px, calc(100% - 20px));
+    inset: 10px 10px auto 10px;
   }
 
   .hud__profile {
@@ -558,6 +712,15 @@
     width: 44px;
     height: 44px;
     font-size: 0.95rem;
+  }
+
+  .hud__chip {
+    padding: 2px 4px;
+    font-size: 0.62rem;
+  }
+
+  .hud__chip-label {
+    font-size: 0.52rem;
   }
 
   .hero-card__avatar {

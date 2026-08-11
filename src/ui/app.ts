@@ -10,6 +10,7 @@ import { KeyboardInput } from '../input/keyboardInput';
 import { TouchInput } from '../input/touchInput';
 import { loadPlayerStats, saveRunSummary } from '../infra/runRepository';
 import { formatTime } from './format';
+import { mountSplashScreen, type SplashHandle } from './splashScreen';
 
 type HudElements = {
   root: HTMLElement;
@@ -35,6 +36,7 @@ export function createGameApp(root: HTMLElement): void {
   let animationFrame = 0;
   let lastTime = performance.now();
   let runSaved = false;
+  let splash: SplashHandle | null = null;
 
   root.innerHTML = renderShell();
 
@@ -42,10 +44,11 @@ export function createGameApp(root: HTMLElement): void {
   const canvas = root.querySelector<HTMLCanvasElement>('[data-game-canvas]');
   const stage = root.querySelector<HTMLElement>('[data-stage]');
   const overlay = root.querySelector<HTMLElement>('[data-overlay]');
+  const touchStick = root.querySelector<HTMLElement>('[data-touch-stick]');
   const touchNub = root.querySelector<HTMLElement>('[data-touch-nub]');
   const hud = getHudElements(root);
 
-  if (!shell || !canvas || !stage || !overlay || !touchNub) {
+  if (!shell || !canvas || !stage || !overlay || !touchStick || !touchNub) {
     throw new Error('Game UI failed to mount.');
   }
 
@@ -56,7 +59,7 @@ export function createGameApp(root: HTMLElement): void {
   }
 
   const keyboard = new KeyboardInput();
-  const touch = new TouchInput(stage, touchNub);
+  const touch = new TouchInput(stage, touchStick, touchNub);
 
   const applyLayout = (): void => {
     const playing = game !== null;
@@ -88,6 +91,9 @@ export function createGameApp(root: HTMLElement): void {
   };
 
   const startGame = (): void => {
+    // Follow the device orientation at start so play matches how the phone is held.
+    preferredOrientation = getDeviceOrientation();
+    savePreferredOrientation(preferredOrientation);
     const size = getPlaySize(preferredOrientation, true);
     game = new Game({
       width: size.width,
@@ -100,7 +106,7 @@ export function createGameApp(root: HTMLElement): void {
     setHudVisible(true);
     overlay.hidden = true;
     resize();
-    void tryLockOrientation(preferredOrientation);
+    // Do not lock orientation — allow live portrait/landscape swaps while playing.
   };
 
   const returnToMenu = (): void => {
@@ -263,21 +269,66 @@ export function createGameApp(root: HTMLElement): void {
     animationFrame = requestAnimationFrame(tick);
   };
 
+  const showSplash = (): void => {
+    overlay.hidden = false;
+    splash?.destroy();
+    splash = mountSplashScreen(overlay, () => {
+      splash = null;
+      showOverlay(null);
+    });
+  };
+
+  const syncOrientationFromDevice = (): void => {
+    const next = getDeviceOrientation();
+    if (next === preferredOrientation) {
+      resize();
+      return;
+    }
+
+    preferredOrientation = next;
+    savePreferredOrientation(preferredOrientation);
+
+    const buttons = [
+      ...overlay.querySelectorAll<HTMLButtonElement>('[data-orientation]'),
+    ];
+    if (buttons.length > 0) {
+      updateOrientationButtons(buttons, preferredOrientation);
+    }
+
+    resize();
+  };
+
+  let orientationSyncTimer = 0;
+
+  const onDeviceOrientationChange = (): void => {
+    // Viewport size often updates after the orientation event.
+    window.clearTimeout(orientationSyncTimer);
+    orientationSyncTimer = window.setTimeout(() => {
+      syncOrientationFromDevice();
+    }, 120);
+  };
+
+  const screenOrientation = window.screen.orientation;
+
   window.addEventListener('resize', resize);
-  window.addEventListener('orientationchange', resize);
+  window.addEventListener('orientationchange', onDeviceOrientationChange);
+  screenOrientation?.addEventListener('change', onDeviceOrientationChange);
   window.visualViewport?.addEventListener('resize', resize);
   window.visualViewport?.addEventListener('scroll', resize);
-  resize();
+  syncOrientationFromDevice();
   setHudVisible(false);
-  showOverlay(null);
+  showSplash();
   animationFrame = requestAnimationFrame(tick);
 
   window.addEventListener('beforeunload', () => {
+    splash?.destroy();
     keyboard.destroy();
     touch.destroy();
     cancelAnimationFrame(animationFrame);
+    window.clearTimeout(orientationSyncTimer);
     window.removeEventListener('resize', resize);
-    window.removeEventListener('orientationchange', resize);
+    window.removeEventListener('orientationchange', onDeviceOrientationChange);
+    screenOrientation?.removeEventListener('change', onDeviceOrientationChange);
     window.visualViewport?.removeEventListener('resize', resize);
     window.visualViewport?.removeEventListener('scroll', resize);
   });
@@ -311,7 +362,7 @@ function renderShell(): string {
             <div class="xp-bar__fill" data-xp-fill></div>
           </div>
         </div>
-        <div class="touch-stick" aria-hidden="true">
+        <div class="touch-stick" data-touch-stick aria-hidden="true">
           <div class="touch-stick__nub" data-touch-nub></div>
         </div>
         <div class="overlay" data-overlay></div>
@@ -550,6 +601,10 @@ function isDevicePortrait(): boolean {
   return height >= width;
 }
 
+function getDeviceOrientation(): ScreenOrientationMode {
+  return isDevicePortrait() ? 'portrait' : 'landscape';
+}
+
 function needsForcedRotation(preferred: ScreenOrientationMode): boolean {
   const devicePortrait = isDevicePortrait();
   return preferred === 'landscape' ? devicePortrait : !devicePortrait;
@@ -590,22 +645,6 @@ function savePreferredOrientation(orientation: ScreenOrientationMode): void {
     localStorage.setItem(ORIENTATION_STORAGE_KEY, orientation);
   } catch {
     // Ignore storage failures (private mode, quota, etc.).
-  }
-}
-
-async function tryLockOrientation(orientation: ScreenOrientationMode): Promise<void> {
-  const screenOrientation = window.screen.orientation as
-    | ScreenOrientation
-    | undefined;
-
-  if (!screenOrientation || typeof screenOrientation.lock !== 'function') {
-    return;
-  }
-
-  try {
-    await screenOrientation.lock(orientation);
-  } catch {
-    // Locking often requires fullscreen / installed PWA; CSS rotation is the fallback.
   }
 }
 

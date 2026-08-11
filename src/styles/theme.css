@@ -21,6 +21,24 @@
   --blue: #7bb7ff;
   --red: #ff6b6b;
   --ink: #101318;
+  --font-display: 'RetroMario', 'Segoe UI', sans-serif;
+  --font-title: 'OldRoblox', 'Segoe UI', sans-serif;
+}
+
+@font-face {
+  font-family: 'RetroMario';
+  src: url('/assets/fonts/RetroMario-Regular.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'OldRoblox';
+  src: url('/assets/fonts/OldRobloxFont-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
 }
 
 * {
