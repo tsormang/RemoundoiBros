@@ -13,6 +13,10 @@ import type {
   InputState,
   PlayerStats,
 } from '../game/types';
+import {
+  GamepadInput,
+  type GamepadStatus,
+} from '../input/gamepadInput';
 import { KeyboardInput } from '../input/keyboardInput';
 import { TouchInput } from '../input/touchInput';
 import {
@@ -60,6 +64,7 @@ export function createGameApp(root: HTMLElement): void {
   let splash: SplashHandle | null = null;
   let pausedForSettings = false;
   let adminUnlockClicks = 0;
+  let settingsGamepadSync: (() => void) | null = null;
 
   root.innerHTML = renderShell();
 
@@ -98,6 +103,7 @@ export function createGameApp(root: HTMLElement): void {
 
   const keyboard = new KeyboardInput();
   const touch = new TouchInput(stage, touchStick, touchNub);
+  const gamepad = new GamepadInput();
 
   const syncOrientationControl = (): void => {
     updateOrientationButtons(
@@ -168,9 +174,20 @@ export function createGameApp(root: HTMLElement): void {
     hud.avatar.innerHTML = renderAvatarContent(hero, 'sm');
   };
 
+  const clearSettingsGamepadSync = (): void => {
+    if (!settingsGamepadSync) {
+      return;
+    }
+
+    window.removeEventListener('gamepadconnected', settingsGamepadSync);
+    window.removeEventListener('gamepaddisconnected', settingsGamepadSync);
+    settingsGamepadSync = null;
+  };
+
   const startGame = (): void => {
     const size = getPlaySize(preferredOrientation);
     const viewScale = VIEW_ZOOM_SCALE[preferredZoom];
+    clearSettingsGamepadSync();
     pausedForSettings = false;
     adminUnlockClicks = 0;
     game = new Game({
@@ -189,6 +206,7 @@ export function createGameApp(root: HTMLElement): void {
   };
 
   const returnToMenu = (): void => {
+    clearSettingsGamepadSync();
     pausedForSettings = false;
     game = null;
     setHudVisible(false);
@@ -218,6 +236,7 @@ export function createGameApp(root: HTMLElement): void {
       return;
     }
 
+    clearSettingsGamepadSync();
     pausedForSettings = false;
     overlay.hidden = true;
     lastTime = performance.now();
@@ -235,7 +254,11 @@ export function createGameApp(root: HTMLElement): void {
 
     pausedForSettings = true;
     overlay.hidden = false;
-    overlay.innerHTML = renderSettingsMenu(preferredOrientation, preferredZoom);
+    overlay.innerHTML = renderSettingsMenu(
+      preferredOrientation,
+      preferredZoom,
+      gamepad.getStatus(),
+    );
 
     overlay
       .querySelector<HTMLButtonElement>('[data-settings-resume]')
@@ -246,6 +269,19 @@ export function createGameApp(root: HTMLElement): void {
     overlay
       .querySelector<HTMLButtonElement>('[data-settings-leave]')
       ?.addEventListener('click', returnToMenu);
+
+    overlay
+      .querySelector<HTMLButtonElement>('[data-settings-gamepad]')
+      ?.addEventListener('click', () => {
+        const status = gamepad.enable();
+        updateGamepadSettingsUi(overlay, status);
+      });
+
+    settingsGamepadSync = () => {
+      updateGamepadSettingsUi(overlay, gamepad.getStatus());
+    };
+    window.addEventListener('gamepadconnected', settingsGamepadSync);
+    window.addEventListener('gamepaddisconnected', settingsGamepadSync);
 
     overlay
       .querySelector<HTMLElement>('[data-settings-orientation]')
@@ -497,7 +533,11 @@ export function createGameApp(root: HTMLElement): void {
 
     if (game) {
       if (!pausedForSettings) {
-        const input = mergeInputs(keyboard.getState(), touch.getState());
+        const input = mergeInputs(
+          keyboard.getState(),
+          touch.getState(),
+          gamepad.getState(),
+        );
         game.update(deltaSeconds, input);
       }
 
@@ -578,6 +618,7 @@ export function createGameApp(root: HTMLElement): void {
     splash?.destroy();
     keyboard.destroy();
     touch.destroy();
+    gamepad.destroy();
     cancelAnimationFrame(animationFrame);
     window.clearTimeout(orientationSyncTimer);
     window.removeEventListener('resize', resize);
@@ -732,7 +773,10 @@ function renderStatsScreen(stats: PlayerStats[]): string {
 function renderSettingsMenu(
   orientation: ScreenOrientationMode,
   zoom: ViewZoomMode,
+  gamepadStatus: GamepadStatus,
 ): string {
+  const gamepad = describeGamepadStatus(gamepadStatus);
+
   return `
     <section class="dialog dialog--settings" aria-modal="true" aria-label="Ρυθμίσεις">
       <header class="settings-menu__header">
@@ -802,6 +846,30 @@ function renderSettingsMenu(
         </div>
       </div>
 
+      <div class="settings-menu__section">
+        <h3 class="settings-menu__label">Χειριστήριο</h3>
+        <button
+          class="settings-gamepad ${gamepad.connected ? 'is-connected' : ''}"
+          type="button"
+          data-settings-gamepad
+          ${gamepad.disabled ? 'disabled' : ''}
+          aria-pressed="${gamepad.connected}"
+        >
+          <span class="settings-gamepad__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" focusable="false">
+              <path
+                fill="currentColor"
+                d="M7.5 7.5h9A4.5 4.5 0 0 1 21 12v1.5A4.5 4.5 0 0 1 16.5 18h-9A4.5 4.5 0 0 1 3 13.5V12A4.5 4.5 0 0 1 7.5 7.5Zm1.25 2.25a.75.75 0 0 0-.75.75v1.25H6.75a.75.75 0 0 0 0 1.5H8v1.25a.75.75 0 0 0 1.5 0V13.25h1.25a.75.75 0 0 0 0-1.5H9.5V10.5a.75.75 0 0 0-.75-.75Zm7.5 1.1a1.1 1.1 0 1 0 0 2.2 1.1 1.1 0 0 0 0-2.2Zm2.75 2.4a1.1 1.1 0 1 0 0 2.2 1.1 1.1 0 0 0 0-2.2Z"
+              />
+            </svg>
+          </span>
+          <span class="settings-gamepad__copy">
+            <span class="settings-gamepad__title" data-gamepad-title>${gamepad.title}</span>
+            <span class="settings-gamepad__status" data-gamepad-status>${gamepad.status}</span>
+          </span>
+        </button>
+      </div>
+
       <div class="dialog-actions">
         <button class="primary-button" type="button" data-settings-resume>Συνέχεια</button>
         <button class="secondary-button" type="button" data-settings-restart>Επανεκκίνηση</button>
@@ -809,6 +877,59 @@ function renderSettingsMenu(
       </div>
     </section>
   `;
+}
+
+function describeGamepadStatus(status: GamepadStatus): {
+  title: string;
+  status: string;
+  connected: boolean;
+  disabled: boolean;
+} {
+  switch (status) {
+    case 'connected':
+      return {
+        title: 'Χειριστήριο ενεργό',
+        status: 'Έτοιμο για κίνηση με stick ή D-pad.',
+        connected: true,
+        disabled: false,
+      };
+    case 'unsupported':
+      return {
+        title: 'Μη διαθέσιμο',
+        status: 'Αυτός ο φυλλομετρητής δεν υποστηρίζει χειριστήρια.',
+        connected: false,
+        disabled: true,
+      };
+    case 'disconnected':
+    default:
+      return {
+        title: 'Ενεργοποίηση χειριστηρίου',
+        status: 'Σύνδεσε το pad και πάτα εδώ (ή πάτα κουμπί στο pad).',
+        connected: false,
+        disabled: false,
+      };
+  }
+}
+
+function updateGamepadSettingsUi(
+  overlay: HTMLElement,
+  status: GamepadStatus,
+): void {
+  const button = overlay.querySelector<HTMLButtonElement>(
+    '[data-settings-gamepad]',
+  );
+  const title = overlay.querySelector<HTMLElement>('[data-gamepad-title]');
+  const statusEl = overlay.querySelector<HTMLElement>('[data-gamepad-status]');
+  if (!button || !title || !statusEl) {
+    return;
+  }
+
+  const next = describeGamepadStatus(status);
+  title.textContent = next.title;
+  statusEl.textContent = next.status;
+  button.disabled = next.disabled;
+  button.setAttribute('aria-pressed', String(next.connected));
+  button.classList.toggle('is-connected', next.connected);
 }
 
 function renderAdminMenu(difficulty: DifficultyId): string {
@@ -1086,9 +1207,17 @@ function updateDifficultyButtons(
   }
 }
 
-function mergeInputs(keyboard: InputState, touch: InputState): InputState {
+function mergeInputs(
+  keyboard: InputState,
+  touch: InputState,
+  gamepad: InputState,
+): InputState {
   if (touch.move.x !== 0 || touch.move.y !== 0) {
     return touch;
+  }
+
+  if (gamepad.move.x !== 0 || gamepad.move.y !== 0) {
+    return gamepad;
   }
 
   return keyboard;
