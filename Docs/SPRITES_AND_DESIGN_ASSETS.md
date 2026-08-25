@@ -306,3 +306,80 @@ For the first art handoff, request only this:
 - Four upgrade icons.
 
 That is enough to make the prototype feel like a real game without producing a huge asset list too early.
+
+## Stage, Boss, and New Weapon Placeholders
+
+The following paths are wired in code with solid-color PNG placeholders. Replace each file in place when final art is ready.
+
+Zagka beach already uses sliced art from `Sprites/zagka beach assets.png` (floor mosaic, stage thumb, and blockers). Re-extract with `node scripts/extract-zagka-beach.mjs` after `npm install sharp`.
+
+Beach pufferfish (Lago) and the Grandpa / Sissy bosses are sliced from `Sprites/Lago_small.png`, `Sprites/Lago_large.png`, `Sprites/Grandpa.png`, and `Sprites/Sissi.png`. Re-extract with `node scripts/extract-character-sheets.mjs`.
+
+### Stage select and backgrounds
+
+```txt
+public/assets/ui/stages/stage_koroni_kids_room_thumb.png
+public/assets/ui/stages/stage_zagka_beach_thumb.png
+public/assets/backgrounds/background_zagka_beach_floor_tile.png
+```
+
+### Beach blockers
+
+```txt
+public/assets/sprites/props/beach_blockers/prop_beach_seaweed_green.png
+public/assets/sprites/props/beach_blockers/prop_beach_seaweed_teal.png
+public/assets/sprites/props/beach_blockers/prop_beach_seaweed_purple.png
+public/assets/sprites/props/beach_blockers/prop_beach_tire.png
+public/assets/sprites/props/beach_blockers/prop_beach_rocks.png
+```
+
+### Bosses
+
+Sliced from `Sprites/Grandpa.png` and `Sprites/Sissi.png`:
+
+```txt
+public/assets/sprites/enemies/boss_grandpa/boss_grandpa_walk_01.png
+public/assets/sprites/enemies/boss_grandpa/boss_grandpa_walk_02.png
+public/assets/sprites/enemies/boss_grandpa/boss_grandpa_walk_03.png
+public/assets/sprites/enemies/boss_grandpa/boss_grandpa_walk_04.png
+public/assets/sprites/enemies/boss_grandpa/boss_grandpa_hit_01.png
+public/assets/sprites/enemies/boss_grandpa/boss_grandpa_tell_01.png
+public/assets/sprites/enemies/boss_grandpa/boss_grandpa_attack_pan_01.png
+public/assets/sprites/enemies/boss_grandpa/boss_grandpa_attack_scooter_01.png
+public/assets/sprites/enemies/boss_grandpa/boss_grandpa_scooter_01.png
+public/assets/sprites/enemies/boss_grandpa/boss_grandpa_scooter_02.png
+public/assets/sprites/enemies/boss_grandpa/boss_grandpa_scooter_spark_01.png
+public/assets/sprites/enemies/boss_sissy/boss_sissy_walk_01.png
+public/assets/sprites/enemies/boss_sissy/boss_sissy_walk_02.png
+public/assets/sprites/enemies/boss_sissy/boss_sissy_hit_01.png
+public/assets/sprites/enemies/boss_sissy/boss_sissy_tell_01.png
+public/assets/sprites/enemies/boss_sissy/boss_sissy_attack_01.png
+```
+
+### Beach enemies (Lago)
+
+Sliced from `Sprites/Lago_small.png` and `Sprites/Lago_large.png`. Used on Zagka beach.
+
+```txt
+public/assets/sprites/enemies/small_lago/
+public/assets/sprites/enemies/large_lago/
+```
+
+### New weapons (icon + primary effect sprite)
+
+```txt
+public/assets/sprites/weapons/watergun/
+public/assets/sprites/weapons/hot-wheels/
+public/assets/sprites/weapons/bad-food/
+public/assets/sprites/weapons/insomnia/
+public/assets/sprites/weapons/presents/
+public/assets/sprites/weapons/knife/
+public/assets/sprites/weapons/slippers/
+public/assets/sprites/weapons/machinegun/
+```
+
+Regenerate placeholders with:
+
+```bash
+node scripts/generate-placeholders.mjs
+```

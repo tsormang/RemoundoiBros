@@ -1,4 +1,6 @@
 import { Game } from '../game/Game';
+import { BOSS_FIGHT_OPTIONS, parseBossId } from '../game/bosses';
+import { loadDeveloperMode, saveDeveloperMode } from '../game/developer';
 import {
   DIFFICULTY_OPTIONS,
   loadPreferredDifficulty,
@@ -7,12 +9,24 @@ import {
   type DifficultyId,
 } from '../game/difficulty';
 import { heroes } from '../game/heroes';
+import {
+  DEFAULT_STAGE_ID,
+  RUN_DURATION_OPTIONS,
+  stages,
+  type StageDefinition,
+} from '../game/stages';
 import type {
+  BossId,
   GameSnapshot,
   HeroDefinition,
   InputState,
   PlayerStats,
+  RunDurationMinutes,
+  StageId,
+  WeaponId,
 } from '../game/types';
+import { getStartPickerWeapons, isWeaponUnlocked } from '../game/unlocks';
+import { getWeaponDefinition } from '../game/weapons';
 import {
   GamepadInput,
   type GamepadStatus,
@@ -52,11 +66,25 @@ const VIEW_ZOOM_SCALE: Record<ViewZoomMode, number> = {
   far: 0.75,
 };
 
+type LoadoutSelection = {
+  stageId: StageId;
+  durationMinutes: RunDurationMinutes;
+  startingWeaponId: WeaponId;
+  skipToBoss: BossId | null;
+};
+
 export function createGameApp(root: HTMLElement): void {
   let selectedHero = heroes[0];
+  let loadout: LoadoutSelection = {
+    stageId: DEFAULT_STAGE_ID,
+    durationMinutes: 6,
+    startingWeaponId: selectedHero.startingWeaponId,
+    skipToBoss: null,
+  };
   let preferredOrientation = loadPreferredOrientation();
   let preferredZoom = loadPreferredZoom();
   let preferredDifficulty = loadPreferredDifficulty();
+  let developerMode = loadDeveloperMode();
   let game: Game | null = null;
   let animationFrame = 0;
   let lastTime = performance.now();
@@ -190,11 +218,21 @@ export function createGameApp(root: HTMLElement): void {
     clearSettingsGamepadSync();
     pausedForSettings = false;
     adminUnlockClicks = 0;
+    const startingWeaponId =
+      developerMode ||
+      isWeaponUnlocked(selectedHero.id, loadout.startingWeaponId)
+        ? loadout.startingWeaponId
+        : selectedHero.startingWeaponId;
     game = new Game({
       width: size.width / viewScale,
       height: size.height / viewScale,
       hero: selectedHero,
       difficulty: preferredDifficulty,
+      stageId: loadout.stageId,
+      durationSeconds: loadout.durationMinutes * 60,
+      startingWeaponId,
+      developerMode,
+      skipToBoss: developerMode ? (loadout.skipToBoss ?? undefined) : undefined,
     });
     runSaved = false;
     lastTime = performance.now();
@@ -205,10 +243,26 @@ export function createGameApp(root: HTMLElement): void {
     resize();
   };
 
+  const showLoadoutScreen = (): void => {
+    loadout = {
+      ...loadout,
+      startingWeaponId: selectedHero.startingWeaponId,
+      skipToBoss: null,
+    };
+    overlay.hidden = false;
+    overlay.innerHTML = renderLoadoutScreen(
+      selectedHero,
+      loadout,
+      developerMode,
+    );
+    bindLoadoutScreen(overlay);
+  };
+
   const returnToMenu = (): void => {
     clearSettingsGamepadSync();
     pausedForSettings = false;
     game = null;
+    loadout = { ...loadout, skipToBoss: null };
     setHudVisible(false);
     setPlayingChrome(false);
     void tryUnlockOrientation();
@@ -248,7 +302,7 @@ export function createGameApp(root: HTMLElement): void {
     }
 
     const snapshot = game.getSnapshot();
-    if (snapshot.gameOver || snapshot.pausedForUpgrade) {
+    if (snapshot.gameOver || snapshot.victory || snapshot.pausedForUpgrade) {
       return;
     }
 
@@ -327,6 +381,10 @@ export function createGameApp(root: HTMLElement): void {
       button.addEventListener('click', () => {
         selectedHero =
           heroes.find((hero) => hero.id === button.dataset.hero) ?? heroes[0];
+        loadout = {
+          ...loadout,
+          startingWeaponId: selectedHero.startingWeaponId,
+        };
         updateHeroButtons(heroButtons, selectedHero);
       });
     }
@@ -359,10 +417,31 @@ export function createGameApp(root: HTMLElement): void {
     );
   };
 
+  const setDeveloperMode = (next: boolean): void => {
+    if (next === developerMode) {
+      return;
+    }
+
+    developerMode = next;
+    saveDeveloperMode(developerMode);
+    if (!developerMode) {
+      loadout = { ...loadout, skipToBoss: null };
+    }
+    showAdminMenu();
+  };
+
+  const startBossFight = (bossId: BossId): void => {
+    loadout = { ...loadout, skipToBoss: bossId };
+    startGame();
+  };
+
   const showAdminMenu = (): void => {
     overlay.hidden = false;
-    overlay.innerHTML = renderAdminMenu(preferredDifficulty);
+    overlay.innerHTML = renderAdminMenu(preferredDifficulty, developerMode);
+    bindAdminMenu();
+  };
 
+  const bindAdminMenu = (): void => {
     overlay
       .querySelector<HTMLElement>('[data-admin-difficulty]')
       ?.addEventListener('click', (event) => {
@@ -378,6 +457,39 @@ export function createGameApp(root: HTMLElement): void {
         }
 
         setPreferredDifficulty(next);
+      });
+
+    overlay
+      .querySelector<HTMLElement>('[data-admin-developer]')
+      ?.addEventListener('click', (event) => {
+        const target = event.target;
+        if (!(target instanceof Element)) {
+          return;
+        }
+
+        const button = target.closest<HTMLButtonElement>('[data-developer]');
+        if (!button) {
+          return;
+        }
+
+        setDeveloperMode(button.dataset.developer === 'on');
+      });
+
+    overlay
+      .querySelector<HTMLElement>('[data-admin-boss-fights]')
+      ?.addEventListener('click', (event) => {
+        const target = event.target;
+        if (!(target instanceof Element)) {
+          return;
+        }
+
+        const button = target.closest<HTMLButtonElement>('[data-admin-boss]');
+        const next = parseBossId(button?.dataset.adminBoss);
+        if (!next) {
+          return;
+        }
+
+        startBossFight(next);
       });
 
     overlay
@@ -434,7 +546,7 @@ export function createGameApp(root: HTMLElement): void {
       bindAdminUnlock(overlay);
       overlay
         .querySelector<HTMLButtonElement>('[data-start]')
-        ?.addEventListener('click', startGame);
+        ?.addEventListener('click', showLoadoutScreen);
       overlay
         .querySelector<HTMLButtonElement>('[data-stats]')
         ?.addEventListener('click', () => {
@@ -481,6 +593,35 @@ export function createGameApp(root: HTMLElement): void {
       return;
     }
 
+    if (snapshot.victory) {
+      const unlockNote =
+        snapshot.developerMode || snapshot.skipRunSave
+          ? ''
+          : snapshot.newlyUnlockedWeaponId
+            ? `<p class="victory-unlock">Ξεκλείδωσες: <strong>${getWeaponDefinition(snapshot.newlyUnlockedWeaponId).title}</strong></p>`
+            : `<p class="victory-unlock">Έχεις ξεκλειδώσει όλες τις νέες επιθέσεις!</p>`;
+
+      overlay.innerHTML = `
+        <section class="dialog dialog--victory" aria-modal="true">
+          <h2>Νίκη!</h2>
+          <p>Ο ${snapshot.hero.name} νίκησε ${snapshot.bossName ?? 'τον boss'}!</p>
+          <p>Επίπεδο ${snapshot.level}, ${snapshot.kills} εξουδετερώσεις, ${snapshot.gold} χρυσός.</p>
+          ${unlockNote}
+          <div class="dialog-actions">
+            <button class="primary-button" type="button" data-start>Ξανά</button>
+            <button class="secondary-button" type="button" data-menu>Αλλαγή ήρωα</button>
+          </div>
+        </section>
+      `;
+      overlay
+        .querySelector<HTMLButtonElement>('[data-start]')
+        ?.addEventListener('click', startGame);
+      overlay
+        .querySelector<HTMLButtonElement>('[data-menu]')
+        ?.addEventListener('click', returnToMenu);
+      return;
+    }
+
     overlay.innerHTML = `
       <section class="dialog" aria-modal="true">
         <h2>Τέλος παρτίδας</h2>
@@ -488,17 +629,83 @@ export function createGameApp(root: HTMLElement): void {
           snapshot.level
         }, εξουδετέρωσε ${snapshot.kills} εχθρούς και κέρδισε ${snapshot.gold} χρυσό.</p>
         <div class="dialog-actions">
-          <button class="primary-button" type="button" data-start>Ξανά</button>
+          <button class="primary-button" type="button" data-retry>Ξανά</button>
           <button class="secondary-button" type="button" data-menu>Αλλαγή ήρωα</button>
         </div>
       </section>
     `;
     overlay
-      .querySelector<HTMLButtonElement>('[data-start]')
+      .querySelector<HTMLButtonElement>('[data-retry]')
       ?.addEventListener('click', startGame);
     overlay
       .querySelector<HTMLButtonElement>('[data-menu]')
       ?.addEventListener('click', returnToMenu);
+  };
+
+  const bindLoadoutScreen = (container: HTMLElement): void => {
+    container
+      .querySelector<HTMLButtonElement>('[data-loadout-back]')
+      ?.addEventListener('click', () => {
+        showOverlay(null);
+      });
+
+    container
+      .querySelector<HTMLButtonElement>('[data-loadout-start]')
+      ?.addEventListener('click', startGame);
+
+    for (const button of container.querySelectorAll<HTMLButtonElement>(
+      '[data-stage]',
+    )) {
+      button.addEventListener('click', () => {
+        const stageId = button.dataset.stage as StageId | undefined;
+        if (!stageId) {
+          return;
+        }
+        loadout = { ...loadout, stageId };
+        updateLoadoutButtons(container, loadout);
+      });
+    }
+
+    for (const button of container.querySelectorAll<HTMLButtonElement>(
+      '[data-duration]',
+    )) {
+      button.addEventListener('click', () => {
+        const minutes = Number(button.dataset.duration) as RunDurationMinutes;
+        if (![3, 6, 9, 12].includes(minutes)) {
+          return;
+        }
+        loadout = { ...loadout, durationMinutes: minutes };
+        updateLoadoutButtons(container, loadout);
+      });
+    }
+
+    for (const button of container.querySelectorAll<HTMLButtonElement>(
+      '[data-weapon]',
+    )) {
+      button.addEventListener('click', () => {
+        if (button.disabled) {
+          return;
+        }
+        const weaponId = button.dataset.weapon as WeaponId | undefined;
+        if (!weaponId) {
+          return;
+        }
+        loadout = { ...loadout, startingWeaponId: weaponId };
+        updateLoadoutButtons(container, loadout);
+      });
+    }
+
+    for (const button of container.querySelectorAll<HTMLButtonElement>(
+      '[data-boss]',
+    )) {
+      button.addEventListener('click', () => {
+        loadout = {
+          ...loadout,
+          skipToBoss: parseBossId(button.dataset.boss),
+        };
+        updateLoadoutButtons(container, loadout);
+      });
+    }
   };
 
   const showStatsScreen = async (): Promise<void> => {
@@ -556,7 +763,17 @@ export function createGameApp(root: HTMLElement): void {
 
       if (snapshot.gameOver && !runSaved) {
         runSaved = true;
-        void saveRunSummary(game.getRunSummary());
+        if (!snapshot.skipRunSave) {
+          void saveRunSummary(game.getRunSummary());
+        }
+        showOverlay(snapshot);
+      }
+
+      if (snapshot.victory && !runSaved) {
+        runSaved = true;
+        if (!snapshot.skipRunSave) {
+          void saveRunSummary(game.getRunSummary());
+        }
         showOverlay(snapshot);
       }
     }
@@ -635,9 +852,17 @@ function renderShell(): string {
       <section class="stage-wrap" data-stage>
         <canvas class="game-canvas" data-game-canvas aria-label="Πεδίο μάχης Remoundoi Bros"></canvas>
         <div class="hud" data-hud hidden aria-live="polite">
-          <div class="hud__profile">
-            <div class="hud__avatar" data-hud-avatar></div>
-            <div class="hud__info">
+          <div class="hud__layout">
+            <div class="hud__left">
+              <div class="hud__avatar" data-hud-avatar></div>
+              <div class="hud__meta">
+                <span class="hud__chip"><span class="hud__chip-label">Επ.</span><span data-level>1</span></span>
+                <span class="hud__chip"><span class="hud__chip-label">Χρυσός</span><span data-gold>0</span></span>
+                <span class="hud__chip"><span class="hud__chip-label">Εχθροί</span><span data-kills>0</span></span>
+                <span class="hud__chip"><span class="hud__chip-label">Χρόνος</span><span data-time>0:00</span></span>
+              </div>
+            </div>
+            <div class="hud__right">
               <div class="hud__heading">
                 <div class="hud__name" data-hud-name></div>
                 <button
@@ -660,22 +885,18 @@ function renderShell(): string {
                   </svg>
                 </button>
               </div>
-              <div class="hud__hp" aria-label="Υγεία">
-                <div class="hp-bar">
-                  <div class="hp-bar__fill" data-hp-fill></div>
+              <div class="hud__bars">
+                <div class="hud__hp" aria-label="Υγεία">
+                  <div class="hp-bar">
+                    <div class="hp-bar__fill" data-hp-fill></div>
+                  </div>
+                  <span class="hud__hp-value" data-hp>0/0</span>
                 </div>
-                <span class="hud__hp-value" data-hp>0/0</span>
-              </div>
-              <div class="hud__meta">
-                <span class="hud__chip"><span class="hud__chip-label">Επ.</span><span data-level>1</span></span>
-                <span class="hud__chip"><span class="hud__chip-label">Χρυσός</span><span data-gold>0</span></span>
-                <span class="hud__chip"><span class="hud__chip-label">Εχθροί</span><span data-kills>0</span></span>
-                <span class="hud__chip"><span class="hud__chip-label">Χρόνος</span><span data-time>0:00</span></span>
+                <div class="xp-bar" aria-label="Πρόοδος εμπειρίας">
+                  <div class="xp-bar__fill" data-xp-fill></div>
+                </div>
               </div>
             </div>
-          </div>
-          <div class="xp-bar" aria-label="Πρόοδος εμπειρίας">
-            <div class="xp-bar__fill" data-xp-fill></div>
           </div>
         </div>
         <div class="touch-stick" data-touch-stick aria-hidden="true">
@@ -710,6 +931,202 @@ function renderShell(): string {
       </section>
     </div>
   `;
+}
+
+function renderLoadoutScreen(
+  hero: HeroDefinition,
+  selection: LoadoutSelection,
+  developerMode: boolean,
+): string {
+  const weapons = getStartPickerWeapons(hero.id, { unlockAll: developerMode });
+
+  return `
+    <section class="dialog dialog--start loadout-screen" aria-modal="true">
+      <header class="start-screen__brand">
+        <h2>Ρυθμίσεις παρτίδας</h2>
+        <p>Διάλεξε σκηνή, χρόνο και αρχική επίθεση για τον ${hero.name}.</p>
+        ${
+          developerMode
+            ? '<p class="loadout-dev-note">Developer mode: όλες οι επιθέσεις είναι ξεκλείδωτες.</p>'
+            : ''
+        }
+      </header>
+
+      <div class="loadout-section">
+        <h3 class="loadout-section__title">Σκηνή</h3>
+        <div class="loadout-stage-grid" aria-label="Επιλογή σκηνής">
+          ${stages
+            .map((stage) => renderStageCard(stage, stage.id === selection.stageId))
+            .join('')}
+        </div>
+      </div>
+
+      <div class="loadout-section">
+        <h3 class="loadout-section__title">Χρόνος</h3>
+        <div class="loadout-option-row" aria-label="Διάρκεια παρτίδας">
+          ${RUN_DURATION_OPTIONS.map(
+            (option) => `
+              <button
+                class="loadout-chip"
+                type="button"
+                data-duration="${option.minutes}"
+                aria-pressed="${selection.durationMinutes === option.minutes}"
+              >
+                ${option.label}
+              </button>
+            `,
+          ).join('')}
+        </div>
+      </div>
+
+      <div class="loadout-section">
+        <h3 class="loadout-section__title">Αρχική επίθεση</h3>
+        <div class="loadout-weapon-grid" aria-label="Αρχική επίθεση">
+          ${weapons
+            .map((entry) =>
+              renderWeaponPickerCard(
+                entry.weaponId,
+                entry.title,
+                entry.iconSrc,
+                entry.unlocked,
+                entry.weaponId === selection.startingWeaponId,
+              ),
+            )
+            .join('')}
+        </div>
+      </div>
+
+      ${
+        developerMode
+          ? `
+      <div class="loadout-section">
+        <h3 class="loadout-section__title">Boss test</h3>
+        <div class="loadout-option-row" aria-label="Boss test">
+          <button
+            class="loadout-chip"
+            type="button"
+            data-boss="none"
+            aria-pressed="${selection.skipToBoss === null}"
+          >
+            Κανονική παρτίδα
+          </button>
+          ${BOSS_FIGHT_OPTIONS.map(
+            (option) => `
+              <button
+                class="loadout-chip"
+                type="button"
+                data-boss="${option.id}"
+                aria-pressed="${selection.skipToBoss === option.id}"
+              >
+                ${option.label}
+              </button>
+            `,
+          ).join('')}
+        </div>
+      </div>
+          `
+          : ''
+      }
+
+      <div class="dialog-actions">
+        <button class="secondary-button" type="button" data-loadout-back>Πίσω</button>
+        <button class="primary-button" type="button" data-loadout-start>
+          ${selection.skipToBoss ? 'Έναρξη boss' : 'Έναρξη'}
+        </button>
+      </div>
+    </section>
+  `;
+}
+
+function renderStageCard(stage: StageDefinition, selected: boolean): string {
+  return `
+    <button
+      class="loadout-stage-card"
+      type="button"
+      data-stage="${stage.id}"
+      aria-pressed="${selected}"
+      style="--stage-fallback:${stage.thumbnailFallbackColor}"
+    >
+      <span class="loadout-stage-card__thumb">
+        <img src="${stage.thumbnailSrc}" alt="" draggable="false" />
+      </span>
+      <span class="loadout-stage-card__body">
+        <strong>${stage.title}</strong>
+        <span>${stage.description}</span>
+      </span>
+    </button>
+  `;
+}
+
+function renderWeaponPickerCard(
+  weaponId: WeaponId,
+  title: string,
+  iconSrc: string,
+  unlocked: boolean,
+  selected: boolean,
+): string {
+  return `
+    <button
+      class="loadout-weapon-card${unlocked ? '' : ' loadout-weapon-card--locked'}"
+      type="button"
+      data-weapon="${weaponId}"
+      aria-pressed="${selected}"
+      ${unlocked ? '' : 'disabled'}
+    >
+      <img class="loadout-weapon-card__icon" src="${iconSrc}" alt="" width="48" height="48" />
+      <span class="loadout-weapon-card__title">${title}</span>
+      ${unlocked ? '' : '<span class="loadout-weapon-card__lock" aria-hidden="true">🔒</span>'}
+    </button>
+  `;
+}
+
+function updateLoadoutButtons(
+  container: HTMLElement,
+  selection: LoadoutSelection,
+): void {
+  for (const button of container.querySelectorAll<HTMLButtonElement>(
+    '[data-stage]',
+  )) {
+    button.setAttribute(
+      'aria-pressed',
+      String(button.dataset.stage === selection.stageId),
+    );
+  }
+
+  for (const button of container.querySelectorAll<HTMLButtonElement>(
+    '[data-duration]',
+  )) {
+    button.setAttribute(
+      'aria-pressed',
+      String(Number(button.dataset.duration) === selection.durationMinutes),
+    );
+  }
+
+  for (const button of container.querySelectorAll<HTMLButtonElement>(
+    '[data-weapon]',
+  )) {
+    button.setAttribute(
+      'aria-pressed',
+      String(button.dataset.weapon === selection.startingWeaponId),
+    );
+  }
+
+  const startButton = container.querySelector<HTMLButtonElement>(
+    '[data-loadout-start]',
+  );
+  if (startButton) {
+    startButton.textContent = selection.skipToBoss ? 'Έναρξη boss' : 'Έναρξη';
+  }
+
+  for (const button of container.querySelectorAll<HTMLButtonElement>(
+    '[data-boss]',
+  )) {
+    const selected =
+      button.dataset.boss === 'none'
+        ? selection.skipToBoss === null
+        : button.dataset.boss === selection.skipToBoss;
+    button.setAttribute('aria-pressed', String(selected));
+  }
 }
 
 function renderStartScreen(selectedHero: HeroDefinition): string {
@@ -932,7 +1349,10 @@ function updateGamepadSettingsUi(
   button.classList.toggle('is-connected', next.connected);
 }
 
-function renderAdminMenu(difficulty: DifficultyId): string {
+function renderAdminMenu(
+  difficulty: DifficultyId,
+  developerMode: boolean,
+): string {
   return `
     <section class="dialog dialog--settings" aria-modal="true" aria-label="Admin">
       <header class="settings-menu__header">
@@ -962,6 +1382,64 @@ function renderAdminMenu(difficulty: DifficultyId): string {
           ).join('')}
         </div>
       </div>
+
+      <div class="settings-menu__section">
+        <h3 class="settings-menu__label">Developer mode</h3>
+        <div
+          class="settings-segment"
+          data-admin-developer
+          role="group"
+          aria-label="Developer mode"
+        >
+          <button
+            class="settings-segment__button"
+            type="button"
+            data-developer="off"
+            aria-pressed="${!developerMode}"
+          >
+            Off
+          </button>
+          <button
+            class="settings-segment__button"
+            type="button"
+            data-developer="on"
+            aria-pressed="${developerMode}"
+          >
+            On
+          </button>
+        </div>
+        <p class="settings-menu__hint">
+          ${
+            developerMode
+              ? 'Όλες οι επιθέσεις είναι ξεκλείδωτες.'
+              : 'Ξεκλείδωσε όλες τις επιθέσεις και δοκίμασε bosses.'
+          }
+        </p>
+      </div>
+
+      ${
+        developerMode
+          ? `
+      <div class="settings-menu__section">
+        <h3 class="settings-menu__label">Boss fight</h3>
+        <div class="settings-menu__boss-actions" data-admin-boss-fights>
+          ${BOSS_FIGHT_OPTIONS.map(
+            (option) => `
+              <button
+                class="secondary-button"
+                type="button"
+                data-admin-boss="${option.id}"
+              >
+                Fight ${option.label}
+              </button>
+            `,
+          ).join('')}
+        </div>
+        <p class="settings-menu__hint">Ξεκινά απευθείας τη μάχη με τον επιλεγμένο ήρωα.</p>
+      </div>
+          `
+          : ''
+      }
 
       <div class="settings-menu__section">
         <h3 class="settings-menu__label">Stats</h3>
@@ -1155,7 +1633,9 @@ function updateHud(hud: HudElements, snapshot: GameSnapshot): void {
   hud.level.textContent = snapshot.level.toString();
   hud.kills.textContent = snapshot.kills.toString();
   hud.gold.textContent = snapshot.gold.toString();
-  hud.time.textContent = formatTime(snapshot.elapsed);
+  hud.time.textContent = snapshot.bossPhase
+    ? (snapshot.bossName ?? 'BOSS')
+    : formatTime(snapshot.remainingSeconds);
   hud.xpFill.style.width = `${(snapshot.xp / snapshot.xpToNext) * 100}%`;
 }
 

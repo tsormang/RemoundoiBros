@@ -1,0 +1,221 @@
+{
+  "tiles": [
+    {
+      "id": "sand_large",
+      "bbox": {
+        "minX": 38,
+        "minY": 26,
+        "maxX": 667,
+        "maxY": 639,
+        "w": 630,
+        "h": 614,
+        "count": 385935
+      },
+      "crop": {
+        "left": 54,
+        "top": 34,
+        "width": 598,
+        "height": 598
+      }
+    },
+    {
+      "id": "sand_small_tl",
+      "bbox": {
+        "minX": 723,
+        "minY": 26,
+        "maxX": 1017,
+        "maxY": 313,
+        "w": 295,
+        "h": 288,
+        "count": 84571
+      },
+      "crop": {
+        "left": 734,
+        "top": 34,
+        "width": 272,
+        "height": 272
+      }
+    },
+    {
+      "id": "sand_small_tr",
+      "bbox": {
+        "minX": 1099,
+        "minY": 26,
+        "maxX": 1396,
+        "maxY": 313,
+        "w": 298,
+        "h": 288,
+        "count": 85705
+      },
+      "crop": {
+        "left": 1112,
+        "top": 34,
+        "width": 272,
+        "height": 272
+      }
+    },
+    {
+      "id": "sand_small_bl",
+      "bbox": {
+        "minX": 723,
+        "minY": 338,
+        "maxX": 1017,
+        "maxY": 629,
+        "w": 295,
+        "h": 292,
+        "count": 85595
+      },
+      "crop": {
+        "left": 732,
+        "top": 346,
+        "width": 276,
+        "height": 276
+      }
+    },
+    {
+      "id": "sand_small_br",
+      "bbox": {
+        "minX": 1099,
+        "minY": 338,
+        "maxX": 1396,
+        "maxY": 629,
+        "w": 298,
+        "h": 292,
+        "count": 86853
+      },
+      "crop": {
+        "left": 1110,
+        "top": 346,
+        "width": 276,
+        "height": 276
+      }
+    }
+  ],
+  "props": [
+    {
+      "id": "seaweed_green",
+      "bbox": {
+        "minX": 32,
+        "minY": 658,
+        "maxX": 261,
+        "maxY": 998,
+        "w": 230,
+        "h": 341,
+        "count": 44451
+      },
+      "opaque": {
+        "x": 77,
+        "y": 30,
+        "width": 230,
+        "height": 340
+      },
+      "collision": {
+        "x": 109,
+        "y": 125,
+        "width": 166,
+        "height": 225
+      },
+      "frameSize": 384
+    },
+    {
+      "id": "seaweed_teal",
+      "bbox": {
+        "minX": 289,
+        "minY": 657,
+        "maxX": 528,
+        "maxY": 1000,
+        "w": 240,
+        "h": 344,
+        "count": 50472
+      },
+      "opaque": {
+        "x": 72,
+        "y": 26,
+        "width": 240,
+        "height": 344
+      },
+      "collision": {
+        "x": 106,
+        "y": 122,
+        "width": 172,
+        "height": 227
+      },
+      "frameSize": 384
+    },
+    {
+      "id": "seaweed_purple",
+      "bbox": {
+        "minX": 559,
+        "minY": 679,
+        "maxX": 749,
+        "maxY": 992,
+        "w": 191,
+        "h": 314,
+        "count": 37943
+      },
+      "opaque": {
+        "x": 97,
+        "y": 57,
+        "width": 191,
+        "height": 313
+      },
+      "collision": {
+        "x": 124,
+        "y": 145,
+        "width": 137,
+        "height": 206
+      },
+      "frameSize": 384
+    },
+    {
+      "id": "tire",
+      "bbox": {
+        "minX": 787,
+        "minY": 704,
+        "maxX": 1115,
+        "maxY": 997,
+        "w": 329,
+        "h": 294,
+        "count": 62445
+      },
+      "opaque": {
+        "x": 28,
+        "y": 76,
+        "width": 329,
+        "height": 294
+      },
+      "collision": {
+        "x": 74,
+        "y": 158,
+        "width": 237,
+        "height": 194
+      },
+      "frameSize": 384
+    },
+    {
+      "id": "rocks",
+      "bbox": {
+        "minX": 1135,
+        "minY": 688,
+        "maxX": 1504,
+        "maxY": 1000,
+        "w": 370,
+        "h": 313,
+        "count": 76177
+      },
+      "opaque": {
+        "x": 16,
+        "y": 71,
+        "width": 352,
+        "height": 300
+      },
+      "collision": {
+        "x": 65,
+        "y": 155,
+        "width": 254,
+        "height": 198
+      },
+      "frameSize": 384
+    }
+  ]
+}

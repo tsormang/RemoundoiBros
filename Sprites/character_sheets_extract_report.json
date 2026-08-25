@@ -1,0 +1,404 @@
+{
+  "lago_large": {
+    "frameSize": 424,
+    "walkBody": 361,
+    "suggestedDrawSize": 94,
+    "frames": [
+      {
+        "dest": "assets/sprites/enemies/large_lago/enemy_large_lago_walk_01.png",
+        "index": 0,
+        "bbox": {
+          "minX": 30,
+          "minY": 112,
+          "maxX": 364,
+          "maxY": 457,
+          "count": 72158
+        },
+        "crop": {
+          "left": 20,
+          "top": 102,
+          "width": 355,
+          "height": 366
+        }
+      },
+      {
+        "dest": "assets/sprites/enemies/large_lago/enemy_large_lago_walk_02.png",
+        "index": 1,
+        "bbox": {
+          "minX": 416,
+          "minY": 123,
+          "maxX": 758,
+          "maxY": 452,
+          "count": 72004
+        },
+        "crop": {
+          "left": 406,
+          "top": 113,
+          "width": 363,
+          "height": 350
+        }
+      },
+      {
+        "dest": "assets/sprites/enemies/large_lago/enemy_large_lago_walk_03.png",
+        "index": 2,
+        "bbox": {
+          "minX": 789,
+          "minY": 95,
+          "maxX": 1111,
+          "maxY": 455,
+          "count": 74927
+        },
+        "crop": {
+          "left": 779,
+          "top": 85,
+          "width": 343,
+          "height": 381
+        }
+      },
+      {
+        "dest": "assets/sprites/enemies/large_lago/enemy_large_lago_walk_04.png",
+        "index": 3,
+        "bbox": {
+          "minX": 1163,
+          "minY": 131,
+          "maxX": 1513,
+          "maxY": 461,
+          "count": 76693
+        },
+        "crop": {
+          "left": 1153,
+          "top": 121,
+          "width": 371,
+          "height": 351
+        }
+      },
+      {
+        "dest": "assets/sprites/enemies/large_lago/enemy_large_lago_hit_01.png",
+        "index": 4,
+        "bbox": {
+          "minX": 588,
+          "minY": 547,
+          "maxX": 989,
+          "maxY": 941,
+          "count": 91919
+        },
+        "crop": {
+          "left": 578,
+          "top": 537,
+          "width": 422,
+          "height": 415
+        }
+      }
+    ]
+  },
+  "lago_small": {
+    "frameSize": 296,
+    "walkBody": 247,
+    "suggestedDrawSize": 62,
+    "frames": [
+      {
+        "dest": "assets/sprites/enemies/small_lago/enemy_small_lago_walk_01.png",
+        "index": 0,
+        "bbox": {
+          "minX": 41,
+          "minY": 124,
+          "maxX": 278,
+          "maxY": 294,
+          "count": 27615
+        },
+        "crop": {
+          "left": 31,
+          "top": 114,
+          "width": 258,
+          "height": 191
+        }
+      },
+      {
+        "dest": "assets/sprites/enemies/small_lago/enemy_small_lago_walk_02.png",
+        "index": 1,
+        "bbox": {
+          "minX": 343,
+          "minY": 123,
+          "maxX": 582,
+          "maxY": 302,
+          "count": 27825
+        },
+        "crop": {
+          "left": 333,
+          "top": 113,
+          "width": 260,
+          "height": 200
+        }
+      },
+      {
+        "dest": "assets/sprites/enemies/small_lago/enemy_small_lago_walk_03.png",
+        "index": 2,
+        "bbox": {
+          "minX": 654,
+          "minY": 118,
+          "maxX": 881,
+          "maxY": 302,
+          "count": 26314
+        },
+        "crop": {
+          "left": 644,
+          "top": 108,
+          "width": 248,
+          "height": 205
+        }
+      },
+      {
+        "dest": "assets/sprites/enemies/small_lago/enemy_small_lago_walk_04.png",
+        "index": 3,
+        "bbox": {
+          "minX": 949,
+          "minY": 125,
+          "maxX": 1195,
+          "maxY": 308,
+          "count": 29375
+        },
+        "crop": {
+          "left": 939,
+          "top": 115,
+          "width": 267,
+          "height": 204
+        }
+      },
+      {
+        "dest": "assets/sprites/enemies/small_lago/enemy_small_lago_walk_05.png",
+        "index": 4,
+        "bbox": {
+          "minX": 1267,
+          "minY": 123,
+          "maxX": 1495,
+          "maxY": 304,
+          "count": 27484
+        },
+        "crop": {
+          "left": 1257,
+          "top": 113,
+          "width": 249,
+          "height": 202
+        }
+      },
+      {
+        "dest": "assets/sprites/enemies/small_lago/enemy_small_lago_hit_01.png",
+        "index": 11,
+        "bbox": {
+          "minX": 427,
+          "minY": 660,
+          "maxX": 702,
+          "maxY": 893,
+          "count": 33080
+        },
+        "crop": {
+          "left": 417,
+          "top": 650,
+          "width": 296,
+          "height": 254
+        }
+      }
+    ]
+  },
+  "grandpa": {
+    "frameSize": 624,
+    "walkBody": 416,
+    "suggestedDrawSize": 204,
+    "frames": [
+      {
+        "dest": "assets/sprites/enemies/boss_grandpa/boss_grandpa_walk_01.png",
+        "index": 0,
+        "bbox": {
+          "minX": 40,
+          "minY": 35,
+          "maxX": 455,
+          "maxY": 393,
+          "count": 76524
+        },
+        "crop": {
+          "left": 28,
+          "top": 23,
+          "width": 440,
+          "height": 383
+        }
+      },
+      {
+        "dest": "assets/sprites/enemies/boss_grandpa/boss_grandpa_walk_02.png",
+        "index": 1,
+        "bbox": {
+          "minX": 485,
+          "minY": 30,
+          "maxX": 862,
+          "maxY": 390,
+          "count": 74738
+        },
+        "crop": {
+          "left": 473,
+          "top": 18,
+          "width": 402,
+          "height": 385
+        }
+      },
+      {
+        "dest": "assets/sprites/enemies/boss_grandpa/boss_grandpa_walk_03.png",
+        "index": 2,
+        "bbox": {
+          "minX": 945,
+          "minY": 35,
+          "maxX": 1326,
+          "maxY": 397,
+          "count": 72366
+        },
+        "crop": {
+          "left": 933,
+          "top": 23,
+          "width": 406,
+          "height": 387
+        }
+      },
+      {
+        "dest": "assets/sprites/enemies/boss_grandpa/boss_grandpa_walk_04.png",
+        "index": 3,
+        "bbox": {
+          "minX": 1376,
+          "minY": 34,
+          "maxX": 1759,
+          "maxY": 398,
+          "count": 73524
+        },
+        "crop": {
+          "left": 1364,
+          "top": 22,
+          "width": 408,
+          "height": 389
+        }
+      },
+      {
+        "dest": "assets/sprites/enemies/boss_grandpa/boss_grandpa_hit_01.png",
+        "index": 4,
+        "bbox": {
+          "minX": 130,
+          "minY": 436,
+          "maxX": 662,
+          "maxY": 842,
+          "count": 113434
+        },
+        "crop": {
+          "left": 118,
+          "top": 424,
+          "width": 557,
+          "height": 431
+        }
+      },
+      {
+        "dest": "assets/sprites/enemies/boss_grandpa/boss_grandpa_tell_01.png",
+        "index": 5,
+        "bbox": {
+          "minX": 786,
+          "minY": 399,
+          "maxX": 1384,
+          "maxY": 835,
+          "count": 146568
+        },
+        "crop": {
+          "left": 774,
+          "top": 387,
+          "width": 623,
+          "height": 461
+        }
+      }
+    ]
+  },
+  "sissy": {
+    "frameSize": 680,
+    "walkBody": 393,
+    "suggestedDrawSize": 221,
+    "frames": [
+      {
+        "dest": "assets/sprites/enemies/boss_sissy/boss_sissy_walk_01.png",
+        "index": 0,
+        "bbox": {
+          "minX": 74,
+          "minY": 14,
+          "maxX": 311,
+          "maxY": 406,
+          "count": 51297
+        },
+        "crop": {
+          "left": 62,
+          "top": 2,
+          "width": 262,
+          "height": 417
+        }
+      },
+      {
+        "dest": "assets/sprites/enemies/boss_sissy/boss_sissy_walk_02.png",
+        "index": 1,
+        "bbox": {
+          "minX": 437,
+          "minY": 15,
+          "maxX": 648,
+          "maxY": 403,
+          "count": 45652
+        },
+        "crop": {
+          "left": 425,
+          "top": 3,
+          "width": 236,
+          "height": 413
+        }
+      },
+      {
+        "dest": "assets/sprites/enemies/boss_sissy/boss_sissy_hit_01.png",
+        "index": 4,
+        "bbox": {
+          "minX": 19,
+          "minY": 517,
+          "maxX": 471,
+          "maxY": 949,
+          "count": 90535
+        },
+        "crop": {
+          "left": 7,
+          "top": 505,
+          "width": 477,
+          "height": 457
+        }
+      },
+      {
+        "dest": "assets/sprites/enemies/boss_sissy/boss_sissy_tell_01.png",
+        "index": 5,
+        "bbox": {
+          "minX": 472,
+          "minY": 425,
+          "maxX": 841,
+          "maxY": 944,
+          "count": 115195
+        },
+        "crop": {
+          "left": 460,
+          "top": 413,
+          "width": 394,
+          "height": 544
+        }
+      },
+      {
+        "dest": "assets/sprites/enemies/boss_sissy/boss_sissy_attack_01.png",
+        "index": 6,
+        "bbox": {
+          "minX": 872,
+          "minY": 425,
+          "maxX": 1527,
+          "maxY": 941,
+          "count": 180342
+        },
+        "crop": {
+          "left": 860,
+          "top": 413,
+          "width": 676,
+          "height": 541
+        }
+      }
+    ]
+  }
+}

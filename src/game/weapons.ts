@@ -13,6 +13,8 @@ export type WeaponSprites = {
   projectile?: string[];
   trail?: string[];
   hit?: string[];
+  slash?: string[];
+  muzzle?: string[];
   pool?: string[];
   poolNest?: string[];
   poolNestCenter?: string;
@@ -21,7 +23,8 @@ export type WeaponSprites = {
   orbitHit?: string;
   orbitEvolved?: string;
   explosion?: string[];
-  puff?: string;
+  puff?: string[];
+  puffAccent?: string;
   storm?: string[];
   bounceSpark?: string;
   splitMarble?: string;
@@ -32,10 +35,27 @@ export type WeaponDefinition = {
   id: WeaponId;
   title: string;
   description: string;
-  evolutionPassiveId: PassiveId;
-  evolutionTitle: string;
+  evolutionPassiveId?: PassiveId;
+  evolutionTitle?: string;
   sprites: WeaponSprites;
 };
+
+export const UNLOCKABLE_WEAPON_IDS: WeaponId[] = [
+  'watergun',
+  'hot-wheels',
+  'bad-food',
+  'insomnia',
+  'presents',
+  'knife',
+  'slippers',
+  'machinegun',
+];
+
+export const XP_ONLY_WEAPON_IDS: WeaponId[] = [
+  'orbit-toy',
+  'pillow-pop',
+  'marble-bounce',
+];
 
 export type StarThrowStats = {
   damage: number;
@@ -73,6 +93,7 @@ export type OrbitToyStats = {
 export type PillowPopStats = {
   explosionDamage: number;
   cooldown: number;
+  projectileRadius: number;
   blastRadius: number;
   targetingRange: number;
   lingeringDuration: number;
@@ -91,12 +112,93 @@ export type MarbleBounceStats = {
   splitDamageMultiplier: number;
 };
 
+export type WatergunStats = {
+  damage: number;
+  cooldown: number;
+  range: number;
+  halfAngle: number;
+  duration: number;
+};
+
+export type HotWheelsStats = {
+  damage: number;
+  cooldown: number;
+  speed: number;
+  amount: number;
+  pierce: number;
+  radius: number;
+  ttl: number;
+};
+
+export type BadFoodStats = {
+  tickDamage: number;
+  cooldown: number;
+  radius: number;
+  duration: number;
+};
+
+export type InsomniaStats = {
+  damage: number;
+  cooldown: number;
+  radius: number;
+  duration: number;
+  dropInterval: number;
+};
+
+export type PresentsStats = {
+  damage: number;
+  cooldown: number;
+  speed: number;
+  projectileRadius: number;
+  blastRadius: number;
+  fuseSeconds: number;
+};
+
+export type KnifeDirection = 'back' | 'front' | 'up' | 'down';
+
+export type KnifeStats = {
+  damage: number;
+  cooldown: number;
+  range: number;
+  arcRadians: number;
+  duration: number;
+  directions: KnifeDirection[];
+};
+
+export type SlippersStats = {
+  damage: number;
+  cooldown: number;
+  speed: number;
+  amount: number;
+  radius: number;
+  ttl: number;
+};
+
+export type MachinegunStats = {
+  damage: number;
+  burstCooldown: number;
+  reloadCooldown: number;
+  speed: number;
+  shotsPerBurst: number;
+  fireInterval: number;
+  radius: number;
+  ttl: number;
+};
+
 export type WeaponStats =
   | { kind: 'star-throw'; stats: StarThrowStats }
   | { kind: 'web-pool'; stats: WebPoolStats }
   | { kind: 'orbit-toy'; stats: OrbitToyStats }
   | { kind: 'pillow-pop'; stats: PillowPopStats }
-  | { kind: 'marble-bounce'; stats: MarbleBounceStats };
+  | { kind: 'marble-bounce'; stats: MarbleBounceStats }
+  | { kind: 'watergun'; stats: WatergunStats }
+  | { kind: 'hot-wheels'; stats: HotWheelsStats }
+  | { kind: 'bad-food'; stats: BadFoodStats }
+  | { kind: 'insomnia'; stats: InsomniaStats }
+  | { kind: 'presents'; stats: PresentsStats }
+  | { kind: 'knife'; stats: KnifeStats }
+  | { kind: 'slippers'; stats: SlippersStats }
+  | { kind: 'machinegun'; stats: MachinegunStats };
 
 export const MAX_WEAPONS = 5;
 export const MAX_WEAPON_LEVEL = 5;
@@ -174,7 +276,7 @@ export const weaponDefinitions: WeaponDefinition[] = [
         `${weaponsBase}/pillow-pop/weapon_pillow_pop_02.png`,
         `${weaponsBase}/pillow-pop/weapon_pillow_pop_03.png`,
       ],
-      puff: `${weaponsBase}/pillow-pop/weapon_pillow_puff_loop_01.png`,
+      puff: [`${weaponsBase}/pillow-pop/weapon_pillow_puff_loop_01.png`],
       storm: [
         `${weaponsBase}/pillow-pop/weapon_pillow_storm_01.png`,
         `${weaponsBase}/pillow-pop/weapon_pillow_storm_02.png`,
@@ -196,6 +298,124 @@ export const weaponDefinitions: WeaponDefinition[] = [
       bounceSpark: `${weaponsBase}/marble-bounce/weapon_marble_bounce_spark_01.png`,
       splitMarble: `${weaponsBase}/marble-bounce/weapon_super_marble_small_01.png`,
       evolvedProjectile: `${weaponsBase}/marble-bounce/weapon_super_marble_01.png`,
+    },
+  },
+  {
+    id: 'watergun',
+    title: 'Νεροπίστολο',
+    description: 'Ψεκάζει κώνο νερού προς τους εχθρούς.',
+    sprites: {
+      icon: `${weaponsBase}/watergun/weapon_watergun_icon_256.png`,
+      projectile: [
+        `${weaponsBase}/watergun/weapon_watergun_spray_01.png`,
+        `${weaponsBase}/watergun/weapon_watergun_spray_02.png`,
+        `${weaponsBase}/watergun/weapon_watergun_spray_03.png`,
+      ],
+      hit: [
+        `${weaponsBase}/watergun/weapon_watergun_hit_01.png`,
+        `${weaponsBase}/watergun/weapon_watergun_hit_02.png`,
+      ],
+    },
+  },
+  {
+    id: 'hot-wheels',
+    title: 'Αυτοκινητάκια',
+    description: 'Ρίχνει αυτοκινητάκια στους άξονες Χ/Υ που συντρίβουν εχθρούς.',
+    sprites: {
+      icon: `${weaponsBase}/hot-wheels/weapon_hot_wheels_icon_256.png`,
+      projectile: [
+        `${weaponsBase}/hot-wheels/weapon_hot_wheels_car_01.png`,
+        `${weaponsBase}/hot-wheels/weapon_hot_wheels_car_02.png`,
+      ],
+      hit: [`${weaponsBase}/hot-wheels/weapon_hot_wheels_hit_01.png`],
+    },
+  },
+  {
+    id: 'bad-food',
+    title: 'Χαλασμένο φαγητό',
+    description: 'Αφήνει τοξικό σύννεφο γύρω από τον ήρωα.',
+    sprites: {
+      icon: `${weaponsBase}/bad-food/weapon_bad_food_icon_256.png`,
+      puff: [
+        `${weaponsBase}/bad-food/weapon_bad_food_cloud_01.png`,
+        `${weaponsBase}/bad-food/weapon_bad_food_cloud_02.png`,
+        `${weaponsBase}/bad-food/weapon_bad_food_cloud_03.png`,
+      ],
+      puffAccent: `${weaponsBase}/bad-food/weapon_bad_food_bits_01.png`,
+    },
+  },
+  {
+    id: 'insomnia',
+    title: 'Αϋπνία',
+    description: 'Αφήνει σκιά που βλάπτει εχθρούς καθώς κινείσαι.',
+    sprites: {
+      icon: `${weaponsBase}/insomnia/weapon_insomnia_icon_256.png`,
+      trail: [
+        `${weaponsBase}/insomnia/weapon_insomnia_shadow_01.png`,
+        `${weaponsBase}/insomnia/weapon_insomnia_shadow_02.png`,
+      ],
+      puffAccent: `${weaponsBase}/insomnia/weapon_insomnia_zzz_01.png`,
+    },
+  },
+  {
+    id: 'presents',
+    title: 'Δώρα',
+    description: 'Ρίχνει κουτιά δώρων που εκρήγνυνται.',
+    sprites: {
+      icon: `${weaponsBase}/presents/weapon_presents_icon_256.png`,
+      projectile: [
+        `${weaponsBase}/presents/weapon_presents_box_01.png`,
+        `${weaponsBase}/presents/weapon_presents_box_02.png`,
+      ],
+      explosion: [
+        `${weaponsBase}/presents/weapon_presents_blast_01.png`,
+        `${weaponsBase}/presents/weapon_presents_blast_02.png`,
+        `${weaponsBase}/presents/weapon_presents_blast_03.png`,
+      ],
+    },
+  },
+  {
+    id: 'knife',
+    title: 'Μαχαίρι',
+    description: 'Κόβει σε κατευθύνσεις γύρω από τον ήρωα με γρήγορη κίνηση.',
+    sprites: {
+      icon: `${weaponsBase}/knife/weapon_knife_icon_256.png`,
+      slash: [
+        `${weaponsBase}/knife/weapon_knife_slash_01.png`,
+        `${weaponsBase}/knife/weapon_knife_slash_02.png`,
+        `${weaponsBase}/knife/weapon_knife_slash_03.png`,
+      ],
+      hit: [`${weaponsBase}/knife/weapon_knife_hit_01.png`],
+    },
+  },
+  {
+    id: 'slippers',
+    title: 'Παντόφλες',
+    description: 'Ρίχνει παντόφλες προς τους εχθρούς.',
+    sprites: {
+      icon: `${weaponsBase}/slippers/weapon_slippers_icon_256.png`,
+      projectile: [
+        `${weaponsBase}/slippers/weapon_slippers_throw_01.png`,
+        `${weaponsBase}/slippers/weapon_slippers_throw_02.png`,
+      ],
+      hit: [`${weaponsBase}/slippers/weapon_slippers_hit_01.png`],
+    },
+  },
+  {
+    id: 'machinegun',
+    title: 'Πολυβόλο',
+    description: 'Πυροβολεί γρήγορα, ξαναγεμίζει και συνεχίζει.',
+    sprites: {
+      icon: `${weaponsBase}/machinegun/weapon_machinegun_icon_256.png`,
+      projectile: [
+        `${weaponsBase}/machinegun/weapon_machinegun_bullet_01.png`,
+        `${weaponsBase}/machinegun/weapon_machinegun_bullet_02.png`,
+      ],
+      muzzle: [
+        `${weaponsBase}/machinegun/weapon_machinegun_muzzle_01.png`,
+        `${weaponsBase}/machinegun/weapon_machinegun_muzzle_02.png`,
+      ],
+      hit: [`${weaponsBase}/machinegun/weapon_machinegun_hit_01.png`],
     },
   },
 ];
@@ -279,39 +499,42 @@ function slowBonus(passives: PassiveLevels): number {
   return level * 0.05;
 }
 
+const KNIFE_DIRECTION_ORDER: KnifeDirection[] = [
+  'back',
+  'front',
+  'up',
+  'down',
+];
+
+/** Bonus extras unlock at levels 3 and 5 (every 2 levels from base). */
+function extrasEveryTwoLevels(level: number): number {
+  return Math.floor(Math.max(0, level - 1) / 2);
+}
+
+function sizeScale(level: number, perLevel = 0.28): number {
+  return 1 + Math.max(0, level - 1) * perLevel;
+}
+
 export function getStarThrowStats(
   level: number,
   passives: PassiveLevels,
   evolved: boolean,
 ): StarThrowStats {
-  let damage = 18;
-  let pierce = 2;
-  let amount = 1;
+  const amount = level;
+  let damage = scaledByLevel(18, level, 5);
+  let pierce = 2 + extrasEveryTwoLevels(level);
   let cooldown = 0.65;
   let speed = 560;
-  let spreadRadians = 0;
+  let spreadRadians = amount <= 1 ? 0 : 0.16 + (amount - 2) * 0.05;
 
-  if (level >= 2) {
-    damage += 4;
-    pierce += 1;
-  }
-  if (level >= 3) {
-    amount += 1;
-    spreadRadians = 0.22;
-  }
   if (level >= 4) {
-    cooldown *= 0.85;
-    speed *= 1.1;
-  }
-  if (level >= 5) {
-    damage += 6;
-    pierce += 2;
+    cooldown *= 0.9;
+    speed *= 1.08;
   }
 
   if (evolved) {
-    amount = 2;
     pierce += 3;
-    spreadRadians = 0.28;
+    spreadRadians = Math.max(spreadRadians, 0.28);
   }
 
   return {
@@ -332,26 +555,15 @@ export function getWebPoolStats(
   passives: PassiveLevels,
   evolved: boolean,
 ): WebPoolStats {
-  let impactDamage = 12;
+  let impactDamage = scaledByLevel(12, level, 3);
   let cooldown = 1.2;
-  let poolChance = 0.35;
-  let poolRadius = 54;
-  let poolDuration = 4;
-  let slowStrength = 0.35;
+  let poolChance = Math.min(1, 0.35 + (level - 1) * 0.15);
+  const poolRadius = 54 * sizeScale(level, 0.3);
+  let poolDuration = 4 + (level - 1) * 0.35;
+  let slowStrength = Math.min(0.65, 0.35 + (level - 1) * 0.05);
 
-  if (level >= 2) {
-    poolChance += 0.15;
-  }
-  if (level >= 3) {
-    poolRadius *= 1.2;
-    poolDuration += 1;
-  }
   if (level >= 4) {
     cooldown *= 0.85;
-    slowStrength = 0.45;
-  }
-  if (level >= 5) {
-    poolChance = 1;
   }
 
   if (evolved) {
@@ -367,7 +579,7 @@ export function getWebPoolStats(
     poolRadius: poolRadius * areaMultiplier(passives),
     poolDuration: poolDuration * statusDurationMultiplier(passives),
     slowStrength: Math.min(0.75, slowStrength + slowBonus(passives)),
-    tickDamage: 3 * damageMultiplier(passives),
+    tickDamage: scaledByLevel(3, level, 1) * damageMultiplier(passives),
     pullStrength: evolved ? 85 : 0,
   };
 }
@@ -377,30 +589,16 @@ export function getOrbitToyStats(
   passives: PassiveLevels,
   evolved: boolean,
 ): OrbitToyStats {
-  let damage = 10;
-  let count = 1;
-  let orbitRadius = 72;
-  let hitDelay = 0.6;
-  let drawSize = 28;
-
-  if (level >= 2) {
-    count += 1;
-  }
-  if (level >= 3) {
-    orbitRadius *= 1.2;
-  }
-  if (level >= 4) {
-    hitDelay = 0.45;
-  }
-  if (level >= 5) {
-    count += 1;
-    damage *= 1.25;
-  }
+  let damage = scaledByLevel(10, level, 3);
+  let count = 1 + extrasEveryTwoLevels(level);
+  let orbitRadius = 72 * sizeScale(level, 0.22);
+  let hitDelay = Math.max(0.35, 0.6 - (level - 1) * 0.04);
+  let drawSize = 28 * sizeScale(level, 0.26);
 
   if (evolved) {
-    count = 3;
+    count = Math.max(count, 3);
     orbitRadius *= 1.35;
-    drawSize = 38;
+    drawSize *= 1.25;
   }
 
   return {
@@ -418,22 +616,14 @@ export function getPillowPopStats(
   passives: PassiveLevels,
   evolved: boolean,
 ): PillowPopStats {
-  let explosionDamage = 24;
+  let explosionDamage = scaledByLevel(24, level, 6);
   let cooldown = 2.4;
-  let blastRadius = 70;
-  let lingeringDuration = 0;
+  const projectileRadius = 10 * sizeScale(level, 0.26);
+  const blastRadius = 70 * sizeScale(level, 0.3);
+  let lingeringDuration = level >= 5 ? 1 : 0;
 
-  if (level >= 2) {
-    blastRadius *= 1.2;
-  }
-  if (level >= 3) {
-    explosionDamage += 10;
-  }
   if (level >= 4) {
     cooldown *= 0.8;
-  }
-  if (level >= 5) {
-    lingeringDuration = 1;
   }
 
   if (evolved) {
@@ -443,10 +633,11 @@ export function getPillowPopStats(
   return {
     explosionDamage: explosionDamage * damageMultiplier(passives),
     cooldown: cooldown * cooldownMultiplier(passives),
+    projectileRadius,
     blastRadius: blastRadius * areaMultiplier(passives),
     targetingRange: 520,
     lingeringDuration: lingeringDuration * lingeringMultiplier(passives),
-    lingeringTickDamage: 6 * damageMultiplier(passives),
+    lingeringTickDamage: scaledByLevel(6, level, 1.5) * damageMultiplier(passives),
   };
 }
 
@@ -455,26 +646,16 @@ export function getMarbleBounceStats(
   passives: PassiveLevels,
   evolved: boolean,
 ): MarbleBounceStats {
-  let damage = 14;
+  let damage = scaledByLevel(14, level, 4);
   let cooldown = 1;
-  let speed = 620;
-  let amount = 1;
-  let bounces = 3;
-  let finalSplit = false;
+  let speed = 620 + (level - 1) * 25;
+  const amount = 1;
+  let bounces = 3 + (level - 1) * 2;
+  let finalSplit = level >= 5;
+  const radius = (evolved ? 6 : 5) * sizeScale(level, 0.24);
 
-  if (level >= 2) {
-    bounces += 2;
-  }
-  if (level >= 3) {
-    damage += 6;
-    speed *= 1.1;
-  }
-  if (level >= 4) {
-    amount += 1;
-  }
   if (level >= 5) {
     cooldown *= 0.85;
-    finalSplit = true;
   }
 
   if (evolved) {
@@ -488,11 +669,173 @@ export function getMarbleBounceStats(
     speed,
     amount,
     bounces,
-    radius: evolved ? 6 : 5,
-    ttl: 2.2,
+    radius,
+    ttl: 2.2 + (level - 1) * 0.15,
     finalSplit,
     splitDamageMultiplier: 0.55,
   };
+}
+
+function scaledByLevel(
+  base: number,
+  level: number,
+  perLevel: number,
+): number {
+  return base + Math.max(0, level - 1) * perLevel;
+}
+
+export function getWatergunStats(
+  level: number,
+  passives: PassiveLevels,
+): WatergunStats {
+  return {
+    damage: scaledByLevel(8, level, 2.5) * damageMultiplier(passives),
+    cooldown: 0.55 * cooldownMultiplier(passives),
+    range: (152 + (level - 1) * 28) * Math.sqrt(areaMultiplier(passives)),
+    halfAngle: 0.42 + (level - 1) * 0.09,
+    duration: 0.22,
+  };
+}
+
+export function getHotWheelsStats(
+  level: number,
+  passives: PassiveLevels,
+): HotWheelsStats {
+  return {
+    damage: scaledByLevel(16, level, 4) * damageMultiplier(passives),
+    cooldown: 1.1 * cooldownMultiplier(passives),
+    speed: 480 + level * 20,
+    amount: 1,
+    pierce: 2 + extrasEveryTwoLevels(level),
+    radius: 7 * sizeScale(level, 0.3),
+    ttl: 1.8,
+  };
+}
+
+export function getBadFoodStats(
+  level: number,
+  passives: PassiveLevels,
+): BadFoodStats {
+  return {
+    tickDamage: scaledByLevel(5, level, 2) * damageMultiplier(passives),
+    cooldown: 2.2 * cooldownMultiplier(passives),
+    radius: 60 * sizeScale(level, 0.32) * areaMultiplier(passives),
+    duration: 2.7 + (level - 1) * 0.25,
+  };
+}
+
+export function getInsomniaStats(
+  level: number,
+  passives: PassiveLevels,
+): InsomniaStats {
+  return {
+    damage: scaledByLevel(10, level, 2.5) * damageMultiplier(passives),
+    cooldown: 0.35,
+    radius: (26 + (level - 1) * 3) * areaMultiplier(passives),
+    duration: (1.35 + (level - 1) * 0.55) * statusDurationMultiplier(passives),
+    dropInterval: Math.max(0.1, 0.2 - (level - 1) * 0.02),
+  };
+}
+
+export function getPresentsStats(
+  level: number,
+  passives: PassiveLevels,
+): PresentsStats {
+  return {
+    damage: scaledByLevel(22, level, 5) * damageMultiplier(passives),
+    cooldown: 1.6 * cooldownMultiplier(passives),
+    speed: 420,
+    projectileRadius: 12 * sizeScale(level, 0.28),
+    blastRadius: 72 * sizeScale(level, 0.26) * areaMultiplier(passives),
+    fuseSeconds: 1.4,
+  };
+}
+
+export function getKnifeStats(level: number, passives: PassiveLevels): KnifeStats {
+  const directionCount = Math.min(
+    KNIFE_DIRECTION_ORDER.length,
+    1 + extrasEveryTwoLevels(level),
+  );
+
+  return {
+    damage: scaledByLevel(26, level, 5) * damageMultiplier(passives),
+    cooldown: 0.95 * cooldownMultiplier(passives),
+    range: 80 * sizeScale(level, 0.24),
+    arcRadians: 1.4 + (level - 1) * 0.1,
+    duration: 0.18,
+    directions: KNIFE_DIRECTION_ORDER.slice(0, directionCount),
+  };
+}
+
+export function getSlippersStats(
+  level: number,
+  passives: PassiveLevels,
+): SlippersStats {
+  return {
+    damage: scaledByLevel(14, level, 3.5) * damageMultiplier(passives),
+    cooldown: 0.75 * cooldownMultiplier(passives),
+    speed: 520,
+    amount: 1 + extrasEveryTwoLevels(level),
+    radius: 8 * sizeScale(level, 0.28),
+    ttl: 1.5,
+  };
+}
+
+export function getMachinegunStats(
+  level: number,
+  passives: PassiveLevels,
+): MachinegunStats {
+  const fireInterval = 0.08;
+  const shotsPerBurst = 8 + (level - 1) * 4;
+
+  return {
+    damage: scaledByLevel(7, level, 2) * damageMultiplier(passives),
+    burstCooldown: fireInterval,
+    reloadCooldown: 1.8 * cooldownMultiplier(passives),
+    speed: 680,
+    shotsPerBurst,
+    fireInterval,
+    radius: 5,
+    ttl: 0.9,
+  };
+}
+
+export function getWeaponLevelUpDescription(
+  weaponId: WeaponId,
+  nextLevel: number,
+): string {
+  switch (weaponId) {
+    case 'star-throw':
+      return `+1 αστέρι (σύνολο ${nextLevel}) και περισσότερη ζημιά.`;
+    case 'web-pool':
+      return 'Μεγαλύτεροι ιστοί και περισσότερη ζημιά.';
+    case 'orbit-toy':
+      return 'Μεγαλύτερα παιχνίδια, μεγαλύτερη ακτίνα και περισσότερη ζημιά.';
+    case 'pillow-pop':
+      return 'Μεγαλύτερο μαξιλάρι, μεγαλύτερη έκρηξη και περισσότερη ζημιά.';
+    case 'marble-bounce':
+      return 'Μεγαλύτερη μπίλια, περισσότερες αναπηδήσεις και ζημιά.';
+    case 'watergun':
+      return 'Μεγαλύτερος κώνος νερού και περισσότερη ζημιά.';
+    case 'hot-wheels':
+      return 'Μεγαλύτερα αυτοκινητάκια (μόνο σε άξονες Χ/Υ) και περισσότερη ζημιά.';
+    case 'bad-food':
+      return 'Μεγαλύτερο τοξικό σύννεφο και περισσότερη ζημιά.';
+    case 'insomnia':
+      return 'Πιο μακριά σκιά, μεγαλύτερη διάρκεια και περισσότερη ζημιά.';
+    case 'presents':
+      return 'Μεγαλύτερα δώρα και περισσότερη ζημιά.';
+    case 'knife':
+      return nextLevel % 2 === 1 && nextLevel > 1
+        ? 'Έξτρα κατεύθυνση κοψίματος, μεγαλύτερες λεπίδες και περισσότερη ζημιά.'
+        : 'Μεγαλύτερες λεπίδες και περισσότερη ζημιά.';
+    case 'slippers':
+      return nextLevel % 2 === 1 && nextLevel > 1
+        ? 'Έξτρα παντόφλα, μεγαλύτερο μέγεθος και περισσότερη ζημιά.'
+        : 'Μεγαλύτερες παντόφλες και περισσότερη ζημιά.';
+    case 'machinegun':
+      return 'Μεγαλύτερη διάρκεια ριπής και περισσότερη ζημιά.';
+  }
 }
 
 export function getWeaponStats(
@@ -527,6 +870,25 @@ export function getWeaponStats(
         kind: 'marble-bounce',
         stats: getMarbleBounceStats(level, passives, evolved),
       };
+    case 'watergun':
+      return { kind: 'watergun', stats: getWatergunStats(level, passives) };
+    case 'hot-wheels':
+      return { kind: 'hot-wheels', stats: getHotWheelsStats(level, passives) };
+    case 'bad-food':
+      return { kind: 'bad-food', stats: getBadFoodStats(level, passives) };
+    case 'insomnia':
+      return { kind: 'insomnia', stats: getInsomniaStats(level, passives) };
+    case 'presents':
+      return { kind: 'presents', stats: getPresentsStats(level, passives) };
+    case 'knife':
+      return { kind: 'knife', stats: getKnifeStats(level, passives) };
+    case 'slippers':
+      return { kind: 'slippers', stats: getSlippersStats(level, passives) };
+    case 'machinegun':
+      return {
+        kind: 'machinegun',
+        stats: getMachinegunStats(level, passives),
+      };
   }
 }
 
@@ -539,6 +901,10 @@ export function canEvolve(
   }
 
   const definition = getWeaponDefinition(weapon.id);
+  if (!definition.evolutionPassiveId) {
+    return false;
+  }
+
   return (passives[definition.evolutionPassiveId] ?? 0) >= MAX_PASSIVE_LEVEL;
 }
 
@@ -553,11 +919,14 @@ export function allWeaponSpriteSources(): string[] {
       sprites.projectile,
       sprites.trail,
       sprites.hit,
+      sprites.slash,
+      sprites.muzzle,
       sprites.pool,
       sprites.poolNest,
       sprites.explosion,
       sprites.storm,
       sprites.orbitItems,
+      sprites.puff,
     ]) {
       list?.forEach((src) => sources.add(src));
     }
@@ -567,7 +936,7 @@ export function allWeaponSpriteSources(): string[] {
       sprites.slowIndicator,
       sprites.orbitHit,
       sprites.orbitEvolved,
-      sprites.puff,
+      sprites.puffAccent,
       sprites.bounceSpark,
       sprites.splitMarble,
       sprites.evolvedProjectile,
@@ -584,6 +953,7 @@ export function allWeaponSpriteSources(): string[] {
 export function drawAttackUpgradeChoices(
   weapons: WeaponInstance[],
   passives: PassiveLevels,
+  unlockedWeaponIds: Set<WeaponId>,
 ): Upgrade[] {
   const pool: Upgrade[] = [];
   const ownedIds = new Set(weapons.map((weapon) => weapon.id));
@@ -596,7 +966,7 @@ export function drawAttackUpgradeChoices(
         kind: 'weapon-level',
         weaponId: weapon.id,
         title: `${definition.title} Lv.${weapon.level + 1}`,
-        description: definition.description,
+        description: getWeaponLevelUpDescription(weapon.id, weapon.level + 1),
         iconSrc: definition.sprites.icon,
       });
     }
@@ -604,16 +974,27 @@ export function drawAttackUpgradeChoices(
 
   if (weapons.length < MAX_WEAPONS) {
     for (const definition of weaponDefinitions) {
-      if (!ownedIds.has(definition.id)) {
-        pool.push({
-          id: `new:${definition.id}`,
-          kind: 'weapon-new',
-          weaponId: definition.id,
-          title: definition.title,
-          description: `Νέα επίθεση: ${definition.description}`,
-          iconSrc: definition.sprites.icon,
-        });
+      if (ownedIds.has(definition.id)) {
+        continue;
       }
+
+      const isUnlockable = UNLOCKABLE_WEAPON_IDS.includes(definition.id);
+      const isXpOnly = XP_ONLY_WEAPON_IDS.includes(definition.id);
+      const isUnlocked =
+        !isUnlockable || unlockedWeaponIds.has(definition.id);
+
+      if (!isUnlocked && !isXpOnly) {
+        continue;
+      }
+
+      pool.push({
+        id: `new:${definition.id}`,
+        kind: 'weapon-new',
+        weaponId: definition.id,
+        title: definition.title,
+        description: `Νέα επίθεση: ${definition.description}`,
+        iconSrc: definition.sprites.icon,
+      });
     }
   }
 

@@ -92,12 +92,15 @@ export function isSpecialPickup(id: PickupId): id is SpecialPickupId {
 }
 
 export function pickupIdForEnemy(enemyId: EnemyId): XpPickupId {
-  return enemyId === 'small-insect' ? 'xp-gem-blue' : 'xp-gem-purple-large';
+  return enemyId === 'small-insect' || enemyId === 'small-lago'
+    ? 'xp-gem-blue'
+    : 'xp-gem-purple-large';
 }
 
 export function canRollSpecialDrop(enemyId: EnemyId, level: number): boolean {
   return (
     enemyId === 'large-cockroach' ||
+    enemyId === 'large-lago' ||
     enemyId === 'mother-slipper' ||
     level % 5 === 0
   );
