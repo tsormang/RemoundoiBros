@@ -1,12 +1,14 @@
 # Remoundoi Bros: Attacks and Sprite Requirements
 
-Art production guide for every player attack and every boss attack. Use this when creating game-ready sprites.
+Art production guide for every player attack, every boss attack, and special enemy attack VFX. Use this when creating game-ready sprites.
+
+Regular enemy body sprites are in `Docs/SPRITES_AND_DESIGN_ASSETS.md`. This file covers attack VFX that extend beyond the enemy body (e.g. giant squid tentacle).
 
 The original five attacks (Αστροβολές, Ιστός, Περιστρεφόμενο Παιχνίδι, Μαξιλάρι Pop, Μπίλια Αναπήδησης) already have final art. They are listed here as the reference for style, sizes, naming, and how complete a weapon should look.
 
 Unlockable attacks and boss attack VFX still need real sprites. Those currently use solid-color placeholders or colored shapes in code.
 
-Source design: `Docs/remoundoi-bros-attack-system-design.docx`. Game names and behavior come from `src/game/weapons.ts`, `src/game/bosses.ts`, and `src/game/Game.ts`.
+Source design: `Docs/remoundoi-bros-attack-system-design.docx`. Game names and behavior come from `src/game/weapons.ts`, `src/game/bosses.ts`, `src/game/enemies.ts`, and `src/game/Game.ts`.
 
 ## Art Direction
 
@@ -37,6 +39,7 @@ Recommended source sizes (match the finished core five):
 | Wide cone / slash / shockwave | `256x128` or `192x192` | rotated toward the shot |
 | Boss body | keep current sheet size | Grandpa `200px`, Sissy `216px` |
 | Boss projectile | `64x64` to `96x96` | ~`20px` to `40px` |
+| Special enemy tentacle / axis lash | `512x64` or `256x128` | scaled to arena edge, ~36–48px thick |
 
 Filenames use `{role}_{name}_{variant}_{frame}.png`. Put player attacks in:
 
@@ -49,6 +52,13 @@ Put boss body and boss attack VFX in:
 ```txt
 public/assets/sprites/enemies/boss_grandpa/
 public/assets/sprites/enemies/boss_sissy/
+```
+
+Put special enemy body and attack VFX in:
+
+```txt
+public/assets/sprites/enemies/mother_slipper/
+public/assets/sprites/enemies/giant_squid/
 ```
 
 Put bro upgrade icons (speed, health, passives) in:
@@ -76,18 +86,19 @@ Directional sprites should face **right**. Characters already flip on X. Project
 | Περιστρεφόμενο Παιχνίδι | `orbit-toy` | Orbiting toys | Done |
 | Μαξιλάρι Pop | `pillow-pop` | Cluster explosion | Done |
 | Μπίλια Αναπήδησης | `marble-bounce` | Ricochet marble | Done |
-| Νεροπίστολο | `watergun` | Water cone | Placeholder |
-| Αυτοκινητάκια | `hot-wheels` | Piercing cars | Placeholder |
-| Χαλασμένο φαγητό | `bad-food` | Toxic cloud | Placeholder |
-| Αϋπνία | `insomnia` | Shadow trail | Placeholder |
+| Νεροπίστολο | `watergun` | Water cone | Done |
+| Αυτοκινητάκια | `hot-wheels` | Piercing cars | Done |
+| Χαλασμένο φαγητό | `bad-food` | Toxic cloud | Done |
+| Αϋπνία | `insomnia` | Shadow trail | Done |
 | Δώρα | `presents` | Timed gift blast | Done |
-| Μαχαίρι | `knife` | Rear slash | Placeholder |
+| Μαχαίρι | `knife` | Rear slash | Done |
 | Παντόφλες | `slippers` | Thrown slipper | Done |
-| Πολυβόλο | `machinegun` | Burst fire | Placeholder |
-| Παππούς — Καυτή κατσαρόλα | `hot-pan` | Thrown pan, then burst | Attack pose done; pan / burst VFX still missing |
+| Πολυβόλο | `machinegun` | Burst fire | Done |
+| Παππούς — Καυτή κατσαρόλα | `hot-pan` | Thrown pan, then burst | Done |
 | Παππούς — Πατίνι | `scooter` | Fast piercing scooter | Done |
-| Σίσσυ — Σονικό κύμα | sonic wave | Wide shockwave | Missing VFX |
-| Σίσσυ — Ποντίκια | `mouse` | Radial mice | Missing VFX |
+| Σίσσυ — Σονικό κύμα | sonic wave | Wide shockwave | Done |
+| Σίσσυ — Ποντίκια | `mouse` | Radial mice | Done |
+| Γιγαντιαία Σουπιά — Καλαμάρι | `giant-squid` | Axis tentacle to screen edge | VFX done; attack logic pending |
 
 A run can hold up to five player attacks. Each Bro starts with one. Unlockable attacks appear after beating a boss, then can drop on later level-ups. Attack level cap is 5. The original five can evolve at level 5 plus the matching passive at level 3.
 
@@ -208,9 +219,9 @@ Folder for each: `public/assets/sprites/weapons/{id}/`.
 
 | Need | Suggested file | Size | Status |
 | --- | --- | --- | --- |
-| Icon | `weapon_watergun_icon_256.png` | 256 | Placeholder |
-| Spray cone, facing right | `weapon_watergun_spray_01.png`, `_02.png`, `_03.png` | 256x128 | Placeholder (one 64px file) |
-| Splash hit | `weapon_watergun_hit_01.png`, `_02.png` | 96 | Missing |
+| Icon | `weapon_watergun_icon_256.png` | 256 | Done |
+| Spray cone, facing right | `weapon_watergun_spray_01.png`, `_02.png`, `_03.png` | 256x128 | Done |
+| Splash hit | `weapon_watergun_hit_01.png`, `_02.png` | 96 | Done |
 
 **Look:** bright cyan water, toy squirt gun droplets, not a military stream. The cone sprite should be densest near the hero and fade toward the tip. Leave transparent padding so rotation stays centered on the hero.
 
@@ -224,9 +235,9 @@ Folder for each: `public/assets/sprites/weapons/{id}/`.
 
 | Need | Suggested file | Size | Status |
 | --- | --- | --- | --- |
-| Icon | `weapon_hot_wheels_icon_256.png` | 256 | Placeholder |
-| Car, facing right | `weapon_hot_wheels_car_01.png`, `_02.png` | 64 | Placeholder (one file) |
-| Impact spark | `weapon_hot_wheels_hit_01.png` | 96 | Missing |
+| Icon | `weapon_hot_wheels_icon_256.png` | 256 | Done |
+| Car, facing right | `weapon_hot_wheels_car_01.png`, `_02.png` | 64 | Done |
+| Impact spark | `weapon_hot_wheels_hit_01.png` | 96 | Done |
 
 **Look:** chunky Hot Wheels-style car, orange/red, big wheels. Frame 2 can be a wheel-spin / slight bounce. Do not use realistic cars. Nose faces right.
 
@@ -240,9 +251,9 @@ Folder for each: `public/assets/sprites/weapons/{id}/`.
 
 | Need | Suggested file | Size | Status |
 | --- | --- | --- | --- |
-| Icon | `weapon_bad_food_icon_256.png` | 256 | Placeholder |
-| Cloud loop | `weapon_bad_food_cloud_01.png`, `_02.png`, `_03.png` | 192 | Placeholder (one 64px file) |
-| Optional food bits | `weapon_bad_food_bits_01.png` | 64 | Missing |
+| Icon | `weapon_bad_food_icon_256.png` | 256 | Done |
+| Cloud loop | `weapon_bad_food_cloud_01.png`, `_02.png`, `_03.png` | 192 | Done |
+| Optional food bits | `weapon_bad_food_bits_01.png` | 64 | Done |
 
 **Look:** sickly green/olive cartoon stink cloud, maybe a fish bone or spoiled snack silhouette. Soft edges, ~50% opaque, enemies must stay visible through it. Kid-gross, not disgusting.
 
@@ -256,9 +267,9 @@ Folder for each: `public/assets/sprites/weapons/{id}/`.
 
 | Need | Suggested file | Size | Status |
 | --- | --- | --- | --- |
-| Icon | `weapon_insomnia_icon_256.png` | 256 | Placeholder |
-| Shadow puddle loop | `weapon_insomnia_shadow_01.png`, `_02.png` | 128 or 192 | Placeholder (one 64px file) |
-| Optional Zzz particle | `weapon_insomnia_zzz_01.png` | 64 | Missing |
+| Icon | `weapon_insomnia_icon_256.png` | 256 | Done |
+| Shadow puddle loop | `weapon_insomnia_shadow_01.png`, `_02.png` | 128 or 192 | Done |
+| Optional Zzz particle | `weapon_insomnia_zzz_01.png` | 64 | Done |
 
 **Look:** cool purple-black night shadow, readable on both the kids-room floor and beach sand. Not a solid black blob. A sleepy moon or Zzz in the icon is enough storytelling.
 
@@ -288,9 +299,9 @@ Folder for each: `public/assets/sprites/weapons/{id}/`.
 
 | Need | Suggested file | Size | Status |
 | --- | --- | --- | --- |
-| Icon | `weapon_knife_icon_256.png` | 256 | Placeholder |
-| Slash arc, facing right | `weapon_knife_slash_01.png`, `_02.png`, `_03.png` | 192 | Placeholder (one 64px file) |
-| Optional spark | `weapon_knife_hit_01.png` | 96 | Missing |
+| Icon | `weapon_knife_icon_256.png` | 256 | Done |
+| Slash arc, facing right | `weapon_knife_slash_01.png`, `_02.png`, `_03.png` | 192 | Done |
+| Optional spark | `weapon_knife_hit_01.png` | 96 | Done |
 
 **Look:** plastic toy knife or kitchen-butter-knife cartoon, silver with a colorful handle. The slash is a white/cyan arc, not a bloody cut. Face the arc to the right; code places it behind the hero.
 
@@ -320,10 +331,10 @@ Folder for each: `public/assets/sprites/weapons/{id}/`.
 
 | Need | Suggested file | Size | Status |
 | --- | --- | --- | --- |
-| Icon | `weapon_machinegun_icon_256.png` | 256 | Placeholder |
-| Bullet | `weapon_machinegun_bullet_01.png`, `_02.png` | 64 | Placeholder (one file) |
-| Muzzle flash | `weapon_machinegun_muzzle_01.png`, `_02.png` | 96 | Missing |
-| Hit spark | `weapon_machinegun_hit_01.png` | 96 | Missing |
+| Icon | `weapon_machinegun_icon_256.png` | 256 | Done |
+| Bullet | `weapon_machinegun_bullet_01.png`, `_02.png` | 64 | Done |
+| Muzzle flash | `weapon_machinegun_muzzle_01.png`, `_02.png` | 96 | Done |
+| Hit spark | `weapon_machinegun_hit_01.png` | 96 | Done |
 
 **Look:** toy dart / foam-blaster energy, not military ammo. Yellow-white stubby bolt. Keep it friendly. Muzzle flash sits on the hero, small and bright.
 
@@ -353,9 +364,9 @@ Throws a hot pan at the player. Moderate speed (280). On player hit or when the 
 
 | Need | Suggested file | Size | Status |
 | --- | --- | --- | --- |
-| Pan projectile | `boss_grandpa_pan_01.png`, `_02.png` | 96 | Missing (still draws as brown circle) |
-| Burst / sizzle | `boss_grandpa_pan_burst_01.png` to `_03.png` | 192 | Missing |
-| Optional grease splat | `boss_grandpa_pan_splat_01.png` | 96 | Missing |
+| Pan projectile | `boss_grandpa_pan_01.png`, `_02.png` | 96 | Done |
+| Burst / sizzle | `boss_grandpa_pan_burst_01.png` to `_03.png` | 192 | Done |
+| Optional grease splat | `boss_grandpa_pan_splat_01.png` | 96 | Done |
 
 **Look:** cartoon frying pan, brown/copper, maybe a fried egg still in it. Frame 2 is a spin. Burst is steam + sparks + pan clatter, not fireball. Keep it funny.
 
@@ -384,7 +395,7 @@ Faster, louder, more chaotic. Body draw size 216px. Existing body sprites are 68
 | Hit | `boss_sissy_hit_01.png` | Done |
 | Tell | `boss_sissy_tell_01.png` | Done |
 | Attack pose (scream) | `boss_sissy_attack_01.png` | Done |
-| Attack pose (mice toss) | `boss_sissy_attack_mice_01.png` | Missing |
+| Attack pose (mice toss) | `boss_sissy_attack_mice_01.png` | Done |
 
 #### Attack A — Σονικό κύμα
 
@@ -392,7 +403,7 @@ A wide pink shockwave (about 120px wide, 48px thick) travels from Sissy through 
 
 | Need | Suggested file | Size | Status |
 | --- | --- | --- | --- |
-| Wave, facing right | `boss_sissy_wave_01.png`, `_02.png`, `_03.png` | 256x128 | Missing |
+| Wave, facing right | `boss_sissy_wave_01.png`, `_02.png`, `_03.png` | 256x128 | Done |
 | Tell glow / inhale | can reuse `boss_sissy_tell_01.png` | — | Done |
 
 **Look:** magenta/hot-pink sound rings or a cartoon scream cone, striped and readable. Not a realistic shockwave. The sprite should be a wide capsule or stacked arcs, centered, facing right.
@@ -403,10 +414,70 @@ Eight mice burst out in a ring and run outward. Small, grey, low damage each, bu
 
 | Need | Suggested file | Size | Status |
 | --- | --- | --- | --- |
-| Mouse run | `boss_sissy_mouse_01.png` to `_04.png` | 64 | Missing |
-| Spawn puff | `boss_sissy_mouse_puff_01.png` | 96 | Missing |
+| Mouse run | `boss_sissy_mouse_01.png` to `_04.png` | 64 | Done |
+| Spawn puff | `boss_sissy_mouse_puff_01.png` | 96 | Done |
 
 **Look:** silly cartoon mice, round ears, pink nose, not scary rats. Face right. They will be flipped/rotated around the ring.
+
+---
+
+## Special Enemy Attacks
+
+Stage special enemies use the same spawn cadence as `mother-slipper`: rare roll after 40s elapsed (8% → 22% chance), only one alive at a time, guaranteed special pickup on defeat. Body sprites are listed in `Docs/SPRITES_AND_DESIGN_ASSETS.md`.
+
+### Παντόφλα της Μαμάς (`mother-slipper`) — Ξέσπασμα
+
+**Where:** Δωμάτιο Κωρωνης κωδ only.
+
+**What happens:** after a 0.45s tell, the slipper **charges** in a locked direction at 3.1× speed for 0.72s. Damage uses body contact only — no separate attack VFX sprite. The charge reads through movement + tell pose.
+
+| Need | File | Status |
+| --- | --- | --- |
+| Tell pose | `enemy_special_mother_slipper_tell_01.png` | Placeholder |
+| Optional charge pose | `enemy_special_mother_slipper_charge_01.png` | Missing |
+
+**Look:** raised slipper wind-up. Charge can reuse walk frames with motion blur in code.
+
+### Γιγαντιαία Σουπιά (`giant-squid`) — Καλαμάρι
+
+**Where:** Παραλία Ζαγκά only. Beach counterpart to mother slipper — same base stats, gold, and special-drop reward.
+
+**What happens:** after a 0.45s tell, the squid fires one **prolonged tentacle** along a locked **X or Y axis**:
+
+1. **Extend** (~0.55s) — tentacle grows from the squid body to the nearest arena edge along the chosen axis.
+2. **Hold** (~0.20s) — stays fully extended; danger zone is a thick line across the arena.
+3. **Retract** (~0.45s) — tentacle pulls back into the body.
+
+Axis locks at tell start: **horizontal** if `|dx| ≥ |dy|`, else **vertical**; direction points toward the player. Contact damage 24 during extend, hold, and retract if the hero overlaps the tentacle hitbox (~40px thick). Body contact damage unchanged.
+
+**Level 1 (base):** HP 96, speed 52–64, contact damage 24, radius 30, gold 10.
+
+**Body sprites** (see also enemy doc):
+
+| Need | File | Size | Draw | Status |
+| --- | --- | --- | --- | --- |
+| Walk | `enemy_special_giant_squid_walk_01.png` to `_04.png` | 256–320 | 112px | Done |
+| Tell | `enemy_special_giant_squid_tell_01.png` | 256–320 | 112px | Done |
+| Attack pose | `enemy_special_giant_squid_attack_01.png` | 256–320 | 112px | Done |
+| Hit | `enemy_special_giant_squid_hit_01.png` | 256–320 | 112px | Done |
+
+**Tentacle VFX:**
+
+| Need | Suggested file | Size | Status |
+| --- | --- | --- | --- |
+| Tentacle strip, facing right | `enemy_special_giant_squid_tentacle_01.png`, `_02.png`, `_03.png` | 512×64 or 256×128 | Done |
+| Optional tip splash | `enemy_special_giant_squid_tentacle_tip_01.png` | 96 | Done |
+
+**Rendering notes:**
+
+- Draw the tentacle segment **facing right**; code scales length to the distance from squid center to arena edge and rotates 0° / 90° / 180° / 270° for the four axis directions.
+- Frame 1 = short stub emerging; frame 2 = mid extension; frame 3 = full stretch with suckers visible. During hold, loop frame 3. Retract plays frames in reverse (or a dedicated retract strip if added later).
+- Anchor the tentacle base at the squid body center; stretch toward the edge, not from canvas center.
+- The hitbox is a **line slab** along the axis — similar width to Sissy's sonic wave (~40–48px) but much longer (full arena span).
+
+**Look:** chunky cartoon tentacle — purple/violet with lighter suckers, wet shine, not realistic anatomy. Should read clearly on sand at full arena width. **Tell:** puffed mantle + twitching tentacles. **Attack pose:** one arm already unfurling. Tip splash optional: small sand puff or water spray where the tentacle reaches the edge.
+
+**Folder:** `public/assets/sprites/enemies/giant_squid/`
 
 ---
 
@@ -428,13 +499,13 @@ Naming: `upgrade_{passive-id}_icon_256.png` (use hyphens in the id, e.g. `upgrad
 
 | Id | Greek name | Role | Max level | Suggested file | Status |
 | --- | --- | --- | --- | --- | --- |
-| `speed` | Γρήγορα Παπούτσια | Move faster (+12% speed) | Unlimited | `upgrade_speed_icon_256.png` | Missing |
-| `maxHp` | Σνακ Ήρωα | Max HP +18 and heal | Unlimited | `upgrade_max-hp_icon_256.png` | Missing |
-| `bright-stars` | Φωτεινά Αστέρια | +10% weapon damage | 3 | `upgrade_bright-stars_icon_256.png` | Missing |
-| `sticky-socks` | Κολλώδη Καλτσάκια | Longer status / stronger slow | 3 | `upgrade_sticky-socks_icon_256.png` | Missing |
-| `bigger-toys` | Μεγαλύτερα Παιχνίδια | +12% area / radius | 3 | `upgrade_bigger-toys_icon_256.png` | Missing |
-| `cozy-blanket` | Ζεστή Κουβέρτα | Longer lingering effects | 3 | `upgrade_cozy-blanket_icon_256.png` | Missing |
-| `quick-hands` | Γρήγορα Χέρια | −8% weapon cooldown | 3 | `upgrade_quick-hands_icon_256.png` | Missing |
+| `speed` | Γρήγορα Παπούτσια | Move faster (+12% speed) | Unlimited | `upgrade_speed_icon_256.png` | Done |
+| `maxHp` | Σνακ Ήρωα | Max HP +18 and heal | Unlimited | `upgrade_max-hp_icon_256.png` | Done |
+| `bright-stars` | Φωτεινά Αστέρια | +10% weapon damage | 3 | `upgrade_bright-stars_icon_256.png` | Done |
+| `sticky-socks` | Κολλώδη Καλτσάκια | Longer status / stronger slow | 3 | `upgrade_sticky-socks_icon_256.png` | Done |
+| `bigger-toys` | Μεγαλύτερα Παιχνίδια | +12% area / radius | 3 | `upgrade_bigger-toys_icon_256.png` | Done |
+| `cozy-blanket` | Ζεστή Κουβέρτα | Longer lingering effects | 3 | `upgrade_cozy-blanket_icon_256.png` | Done |
+| `quick-hands` | Γρήγορα Χέρια | −8% weapon cooldown | 3 | `upgrade_quick-hands_icon_256.png` | Done |
 
 ### Stat upgrades (always available)
 
@@ -446,7 +517,7 @@ These can appear on any level-up, alongside attacks and evolution passives.
 
 | Need | File | Size | Status |
 | --- | --- | --- | --- |
-| Icon | `upgrade_speed_icon_256.png` | 256 | Missing |
+| Icon | `upgrade_speed_icon_256.png` | 256 | Done |
 
 **Look:** bright kid sneakers or running shoes with a small motion streak or wing accent. Sporty and fun, not realistic athletic gear. Should read as “faster feet” at thumbnail size. Avoid confusing with the slipper weapon (`slippers`).
 
@@ -456,7 +527,7 @@ These can appear on any level-up, alongside attacks and evolution passives.
 
 | Need | File | Size | Status |
 | --- | --- | --- | --- |
-| Icon | `upgrade_max-hp_icon_256.png` | 256 | Missing |
+| Icon | `upgrade_max-hp_icon_256.png` | 256 | Done |
 
 **Look:** hero snack — juice box, cookie, fruit, or lunch-box treat with a tiny heart or plus sign. Warm, comforting colors (orange, red, gold). Not a med-kit or realistic medicine. Should feel like “energy up,” not “hospital.”
 
@@ -466,11 +537,11 @@ These boost weapons and unlock evolutions when the matching attack is level 5 an
 
 | Id | Greek | Pairs with evolution | Suggested file | Status |
 | --- | --- | --- | --- | --- |
-| `bright-stars` | Φωτεινά Αστέρια | Αστροβολές → Αστροβροχή | `upgrade_bright-stars_icon_256.png` | Missing |
-| `sticky-socks` | Κολλώδη Καλτσάκια | Ιστός → Φωλιά Ιστού | `upgrade_sticky-socks_icon_256.png` | Missing |
-| `bigger-toys` | Μεγαλύτερα Παιχνίδια | Περιστρεφόμενο Παιχνίδι → Καρουζέλ | `upgrade_bigger-toys_icon_256.png` | Missing |
-| `cozy-blanket` | Ζεστή Κουβέρτα | Μαξιλάρι Pop → Καταιγίδα | `upgrade_cozy-blanket_icon_256.png` | Missing |
-| `quick-hands` | Γρήγορα Χέρια | Μπίλια → Σούπερ Μπίλια | `upgrade_quick-hands_icon_256.png` | Missing |
+| `bright-stars` | Φωτεινά Αστέρια | Αστροβολές → Αστροβροχή | `upgrade_bright-stars_icon_256.png` | Done |
+| `sticky-socks` | Κολλώδη Καλτσάκια | Ιστός → Φωλιά Ιστού | `upgrade_sticky-socks_icon_256.png` | Done |
+| `bigger-toys` | Μεγαλύτερα Παιχνίδια | Περιστρεφόμενο Παιχνίδι → Καρουζέλ | `upgrade_bigger-toys_icon_256.png` | Done |
+| `cozy-blanket` | Ζεστή Κουβέρτα | Μαξιλάρι Pop → Καταιγίδα | `upgrade_cozy-blanket_icon_256.png` | Done |
+| `quick-hands` | Γρήγορα Χέρια | Μπίλια → Σούπερ Μπίλια | `upgrade_quick-hands_icon_256.png` | Done |
 
 **Look notes (match the paired weapon theme, but read as a buff — not the weapon itself):**
 
@@ -488,9 +559,11 @@ These boost weapons and unlock evolutions when the matching attack is level 5 an
 2. **Bro upgrade icons** (`256x256`) — seven level-up options: speed, max HP, and five evolution passives. Upgrade cards for these are text-only today.
 3. **Unlockable primary VFX** — one readable gameplay sprite per attack (spray, car, cloud, shadow, box, slash, slipper, bullet).
 4. **Hit / extra frames** — 2–3 frame loops and impact sparks.
-5. **Boss attack VFX** — pan, scooter, scream wave, mice. These currently look like colored dots.
-6. **Boss attack poses** — grandpa throw/kick, Sissy mice toss, extra Sissy walk frames.
-7. **Optional polish** — evolved star projectile, water splash, machinegun muzzle.
+5. **Boss attack VFX** — pan, scooter, scream wave, mice.
+6. **Giant squid tentacle VFX** — stretchable axis lash for Zagka beach special enemy.
+7. **Boss attack poses** — grandpa throw/kick, Sissy mice toss, extra Sissy walk frames.
+8. **Giant squid body + tell + attack poses** — beach special enemy body set.
+9. **Optional polish** — evolved star projectile, water splash, machinegun muzzle, squid tentacle tip splash.
 
 Replace placeholders in place. Do not rename the files already wired in `src/game/weapons.ts` unless the extra-frame names above are being added as new files.
 
@@ -517,3 +590,11 @@ A boss attack is art-complete when it has:
 - An attack pose that matches that specific move.
 - The projectile, wave, or minion sprite.
 - An impact or burst if the move explodes or lands.
+
+A special enemy attack is art-complete when it has:
+
+- A **tell** body frame readable at 112px draw size.
+- An **attack** body pose matching the move start.
+- The **tentacle / lash VFX** (for `giant-squid`): at least 3 extend frames on a horizontal strip, facing right, scalable to full arena width.
+- Transparent padding; tentacle base anchors at the body, tip points right before rotation.
+- A silhouette distinct from boss shockwaves, weapon slashes, and beach Lago enemies.

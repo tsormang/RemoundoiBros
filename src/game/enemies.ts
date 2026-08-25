@@ -5,6 +5,7 @@ const largeCockroachBase = '/assets/sprites/enemies/large_cockroach';
 const motherSlipperBase = '/assets/sprites/enemies/mother_slipper';
 const smallLagoBase = '/assets/sprites/enemies/small_lago';
 const largeLagoBase = '/assets/sprites/enemies/large_lago';
+const giantSquidBase = '/assets/sprites/enemies/giant_squid';
 
 export const enemies: Record<EnemyId, EnemyDefinition> = {
   'small-insect': {
@@ -119,6 +120,38 @@ export const enemies: Record<EnemyId, EnemyDefinition> = {
       walkFrameDuration: 0.12,
     },
   },
+  'giant-squid': {
+    id: 'giant-squid',
+    radius: 34,
+    baseHp: 104,
+    minSpeed: 44,
+    maxSpeed: 58,
+    damage: 24,
+    gold: 10,
+    color: '#5a4a8a',
+    sprites: {
+      walk: [
+        `${giantSquidBase}/enemy_special_giant_squid_walk_01.png`,
+        `${giantSquidBase}/enemy_special_giant_squid_walk_02.png`,
+        `${giantSquidBase}/enemy_special_giant_squid_walk_03.png`,
+        `${giantSquidBase}/enemy_special_giant_squid_walk_04.png`,
+      ],
+      tell: [`${giantSquidBase}/enemy_special_giant_squid_tell_01.png`],
+      hit: [`${giantSquidBase}/enemy_special_giant_squid_hit_01.png`],
+      attack: [`${giantSquidBase}/enemy_special_giant_squid_attack_01.png`],
+      tentacle: [
+        `${giantSquidBase}/enemy_special_giant_squid_tentacle_01.png`,
+        `${giantSquidBase}/enemy_special_giant_squid_tentacle_02.png`,
+        `${giantSquidBase}/enemy_special_giant_squid_tentacle_03.png`,
+      ],
+      tentacleTip: `${giantSquidBase}/enemy_special_giant_squid_tentacle_tip_01.png`,
+      drawSize: 112,
+      walkFrameDuration: 0.11,
+    },
+    tellDuration: 0.45,
+    recoverDuration: 0.85,
+    engageDistance: 300,
+  },
 };
 
 export function getEnemyDefinition(id: EnemyId): EnemyDefinition {
@@ -130,5 +163,8 @@ export function allEnemySpriteSources(): string[] {
     ...enemy.sprites.walk,
     ...enemy.sprites.hit,
     ...(enemy.sprites.tell ?? []),
+    ...(enemy.sprites.attack ?? []),
+    ...(enemy.sprites.tentacle ?? []),
+    ...(enemy.sprites.tentacleTip ? [enemy.sprites.tentacleTip] : []),
   ]);
 }

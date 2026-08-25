@@ -53,6 +53,7 @@ export const stages: StageDefinition[] = [
     ],
     smallEnemyId: 'small-lago',
     heavyEnemyId: 'large-lago',
+    specialEnemyId: 'giant-squid',
   },
 ];
 

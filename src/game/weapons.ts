@@ -7,6 +7,7 @@ import type {
 } from './types';
 
 const weaponsBase = '/assets/sprites/weapons';
+const upgradesBase = '/assets/ui/upgrades';
 
 export type WeaponSprites = {
   icon: string;
@@ -422,42 +423,49 @@ export const weaponDefinitions: WeaponDefinition[] = [
 
 export const passiveDefinitions: Record<
   PassiveId,
-  { title: string; description: string; maxLevel: number }
+  { title: string; description: string; maxLevel: number; iconSrc: string }
 > = {
   'bright-stars': {
     title: 'Φωτεινά Αστέρια',
     description: '+10% ζημιά όπλων ανά επίπεδο.',
     maxLevel: MAX_PASSIVE_LEVEL,
+    iconSrc: `${upgradesBase}/upgrade_bright-stars_icon_256.png`,
   },
   'sticky-socks': {
     title: 'Κολλώδη Καλτσάκια',
     description: '+15% διάρκεια κατάστασης και +5% επιβράδυνση.',
     maxLevel: MAX_PASSIVE_LEVEL,
+    iconSrc: `${upgradesBase}/upgrade_sticky-socks_icon_256.png`,
   },
   'bigger-toys': {
     title: 'Μεγαλύτερα Παιχνίδια',
     description: '+12% ακτίνα/περιοχή ανά επίπεδο.',
     maxLevel: MAX_PASSIVE_LEVEL,
+    iconSrc: `${upgradesBase}/upgrade_bigger-toys_icon_256.png`,
   },
   'cozy-blanket': {
     title: 'Ζεστή Κουβέρτα',
     description: '+12% διάρκεια υπολειπόμενων εφέ.',
     maxLevel: MAX_PASSIVE_LEVEL,
+    iconSrc: `${upgradesBase}/upgrade_cozy-blanket_icon_256.png`,
   },
   'quick-hands': {
     title: 'Γρήγορα Χέρια',
     description: '-8% cooldown όπλων ανά επίπεδο.',
     maxLevel: MAX_PASSIVE_LEVEL,
+    iconSrc: `${upgradesBase}/upgrade_quick-hands_icon_256.png`,
   },
   speed: {
     title: 'Γρήγορα Παπούτσια',
     description: 'Κινείσαι 12% πιο γρήγορα.',
     maxLevel: Number.POSITIVE_INFINITY,
+    iconSrc: `${upgradesBase}/upgrade_speed_icon_256.png`,
   },
   maxHp: {
     title: 'Σνακ Ήρωα',
     description: 'Κερδίζεις 18 μέγιστη ζωή και θεραπεύεσαι.',
     maxLevel: Number.POSITIVE_INFINITY,
+    iconSrc: `${upgradesBase}/upgrade_max-hp_icon_256.png`,
   },
 };
 
@@ -947,6 +955,10 @@ export function allWeaponSpriteSources(): string[] {
     }
   }
 
+  for (const passive of Object.values(passiveDefinitions)) {
+    sources.add(passive.iconSrc);
+  }
+
   return [...sources];
 }
 
@@ -1017,19 +1029,20 @@ export function drawAttackUpgradeChoices(
         passiveId,
         title: definition.title,
         description: definition.description,
-        iconSrc: undefined,
+        iconSrc: definition.iconSrc,
       });
     }
   }
 
   for (const passiveId of ['speed', 'maxHp'] as const) {
+    const definition = passiveDefinitions[passiveId];
     pool.push({
       id: `passive:${passiveId}`,
       kind: 'passive',
       passiveId,
-      title: passiveDefinitions[passiveId].title,
-      description: passiveDefinitions[passiveId].description,
-      iconSrc: undefined,
+      title: definition.title,
+      description: definition.description,
+      iconSrc: definition.iconSrc,
     });
   }
 

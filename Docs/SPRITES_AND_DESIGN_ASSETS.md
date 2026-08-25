@@ -1,385 +1,352 @@
-# Remoundoi Bros: Sprites and Design Assets
+# Remoundoi Bros: Enemy Sprites and Design Assets
 
-This document lists the visual assets needed for the first playable versions of Remoundoi Bros. The game is a simple top-down survival arena inspired by Vampire Survivors, with two kid heroes, automatic attacks, enemies, pickups, upgrades, and short survival runs.
+Art production guide for every regular (non-boss) enemy. Use this when creating game-ready enemy sprites, hit frames, and special-behavior tells.
+
+Beach Lago pufferfish enemies already have final art sliced from `Sprites/Lago_small.png` and `Sprites/Lago_large.png`. They are listed here as the reference for style, sizes, naming, and how complete an enemy set should look.
+
+Kids-room enemies (insect, cockroach, mother slipper) still use solid-color placeholder PNGs. The game falls back to colored circles if a sprite fails to load.
+
+For boss body sprites and boss attack VFX, see `Docs/ATTACKS_AND_SPRITE_REQUIREMENTS.md`.
+
+Source behavior: `src/game/enemies.ts`, `src/game/stages.ts`, `src/game/pickups.ts`, and `src/game/Game.ts`.
 
 ## Art Direction
 
-The first art pass should feel playful, bright, readable, and kid-friendly. Prioritize clear silhouettes over detail, because the game will often have many moving objects on screen.
+Playful, bright, readable, kid-friendly. Clear silhouettes over detail. Enemies must stay recognizable at small on-screen sizes, often dozens on screen at once.
 
-Recommended style:
-
-- Top-down or three-quarter top-down sprites.
-- Chunky, readable shapes.
-- Bright hero colors with simple accents.
-- Enemies should look silly or spooky-lite, not scary.
-- Attacks and pickups should be easy to recognize at small sizes.
-- Backgrounds should be lower contrast than characters and projectiles.
+- Top-down or three-quarter top-down.
+- Chunky shapes, strong color, simple accents.
+- Silly or spooky-lite — not scary, not realistic horror.
+- Enemies should read as cartoon bugs, beach creatures (fish, squid), or household chaos (slippers, toys), never as gore or predators.
+- Distinct body shapes between swarm, heavy, and special roles so players can spot threats instantly.
 
 Avoid:
 
-- Very detailed pixel art that becomes muddy when scaled.
-- Dark enemies on dark backgrounds.
+- Very detailed pixel art that becomes muddy when scaled down.
+- Dark enemies on dark floors (kids-room wood and beach sand both need contrast).
 - Tiny facial details that only read at large size.
-- Realistic horror or violent effects.
+- Confusing an enemy silhouette with XP gems, pickups, or player projectiles.
 
 ## Technical Guidelines
 
-Recommended sprite format:
+Format:
 
-- `PNG` with transparency.
-- Individual image files for the first version.
-- Sprite sheets later, once animations are stable.
+- Transparent `PNG`.
+- One file per frame. No sheets in `public/` yet (source sheets live under `Sprites/`).
+- Center the subject in the canvas. The renderer draws from the image center.
 
-Recommended base sizes:
+Recommended source sizes (match the finished Lago pair):
 
-- Heroes: `64x64`
-- Small enemies: `48x48`
-- Large enemies: `64x64` or `80x80`
-- Projectiles: `24x24` to `32x32`
-- Pickups: `24x24`
-- UI icons: `32x32` or `64x64`
-- Background tiles or props: `128x128` or larger
+| Asset type | Source size | On-screen draw |
+| --- | --- | --- |
+| Small swarm enemy body | `128x128` to `192x192` (Lago uses `296`) | `48px` to `62px` |
+| Heavy enemy body | `192x192` to `256x256` (Lago uses `424`) | `72px` to `94px` |
+| Special enemy body | `256x256` to `320x320` | `112px` |
+| Hit flash frame | same canvas as walk frames | replaces walk for `0.18s` |
+| Tell / wind-up pose | same canvas as walk frames | shown during tell phase |
+| Special attack VFX (tentacle, lash) | `512x64` or `256x128` | scaled to arena edge, ~36–48px thick |
 
-Canvas rendering can scale these up or down, so consistency matters more than exact size.
-
-Naming convention:
-
-```txt
-hero_big_bro_idle_01.png
-hero_big_bro_run_01.png
-hero_little_bro_idle_01.png
-enemy_blob_walk_01.png
-weapon_star_projectile.png
-pickup_xp_gem_blue.png
-ui_icon_health.png
-```
-
-Suggested folders:
+Filenames use `enemy_{role}_{name}_{variant}_{frame}.png`. Put each enemy in its own folder:
 
 ```txt
-public/assets/sprites/heroes/
-public/assets/sprites/enemies/
-public/assets/sprites/weapons/
-public/assets/sprites/pickups/
-public/assets/sprites/effects/
-public/assets/ui/
-public/assets/backgrounds/
-```
-
-## MVP Asset List
-
-These are the minimum assets needed to replace the current placeholder circles.
-
-### Hero 1: Big Bro
-
-Required:
-
-- Idle sprite.
-- Run or walk animation, 4 frames minimum.
-- Hit flash or hurt pose.
-- Small portrait for hero select.
-- Optional silhouette/shadow.
-
-Design notes:
-
-- Should feel sturdy, brave, and protective.
-- Current placeholder color: mint green.
-- Current weapon: Star Popper.
-
-### Hero 2: Little Bro
-
-Required:
-
-- Idle sprite.
-- Run or walk animation, 4 frames minimum.
-- Hit flash or hurt pose.
-- Small portrait for hero select.
-- Optional silhouette/shadow.
-
-Design notes:
-
-- Should feel quick, energetic, and mischievous.
-- Current placeholder color: blue.
-- Current weapon: Moon Beam.
-
-## Enemy Sprites
-
-Start with three enemy types.
-
-### Small Enemy
-
-Required:
-
-- Walk animation, 4 frames.
-- Hit state or flash mask.
-- Defeat pop effect can be shared.
-
-Design notes:
-
-- Fast, weak, common.
-- Should read clearly as a basic swarm enemy.
-
-### Heavy Enemy
-
-Required:
-
-- Walk animation, 4 frames.
-- Hit state or flash mask.
-- Defeat pop effect can be shared.
-
-Design notes:
-
-- Bigger, slower, tougher.
-- Needs a distinct shape from the small enemy.
-
-### Special Enemy
-
-Required later:
-
-- Walk animation, 4 frames.
-- Simple tell or glow before special behavior.
-
-Design notes:
-
-- Could be a charger, splitter, ranged enemy, or shielded enemy.
-- Not needed for the first playable version.
-
-## Weapons and Attack Effects
-
-Each hero should have one signature weapon first.
-
-### Star Popper
-
-Required:
-
-- Projectile sprite.
-- Small impact effect, 3 to 5 frames.
-- Optional muzzle sparkle or launch effect.
-
-Design notes:
-
-- Bright, star-shaped, playful.
-- Should be readable while moving quickly.
-
-### Moon Beam
-
-Required:
-
-- Projectile sprite or short beam sprite.
-- Small impact effect, 3 to 5 frames.
-- Optional launch flash.
-
-Design notes:
-
-- Cooler color palette than Star Popper.
-- Can be round, crescent-shaped, or comet-like.
-
-### Shared Effects
-
-Required:
-
-- Enemy hit flash.
-- Enemy defeat pop.
-- XP collection sparkle.
-- Level-up burst.
-
-## Pickups
-
-Required:
-
-- XP gem, blue or cyan.
-- Health pickup.
-- Magnet or vacuum pickup, optional.
-- Coin/token pickup, optional.
-
-Design notes:
-
-- XP gems should be highly readable because they drive the level-up loop.
-- Pickups should glow more than background props.
-
-## Upgrade UI Assets
-
-Required:
-
-- Speed upgrade icon.
-- Damage upgrade icon.
-- Fire-rate upgrade icon.
-- Health upgrade icon.
-
-Optional:
-
-- Rarity frames.
-- Hero-specific upgrade icons.
-- Locked/unlocked state icons.
-
-## Environment Assets
-
-The first arena can be simple and mostly procedural.
-
-Required:
-
-- Arena ground texture or tile.
-- Subtle grid/tile variation.
-- Boundary decoration.
-- 3 to 5 small background props.
-
-Possible props:
-
-- Rocks.
-- Toys.
-- Stars.
-- Crates.
-- Bushes.
-- Small fantasy ruins.
-
-Design notes:
-
-- Props should not be confused with pickups or enemies.
-- Keep contrast low enough that gameplay remains readable.
-
-## UI and Branding
-
-Required:
-
-- Game logo or title treatment.
-- Hero select portraits.
-- Health icon.
-- XP icon.
-- Kills icon.
-- Timer icon.
-- Level-up panel style.
-- Button states: normal, hover, active, disabled.
-
-Optional:
-
-- App icon.
-- Loading screen image.
-- Social preview image.
-- Victory/defeat badges.
-
-## Animation Priorities
-
-Build animations in this order:
-
-1. Hero run animations.
-2. Enemy walk animations.
-3. Projectile and impact effects.
-4. XP collection effect.
-5. Level-up effect.
-6. Hero idle animations.
-7. UI flourishes.
-
-The first game version can feel good with only movement, attacks, and impact effects animated.
-
-## Sprite Implementation Notes
-
-The current prototype renders placeholder shapes in `src/game/Game.ts`. When sprites are added, rendering should probably move toward a small asset loader and sprite renderer rather than adding image code directly into the game logic.
-
-Suggested future files:
-
-```txt
-src/render/assets.ts
-src/render/spriteRenderer.ts
-src/render/animation.ts
-src/game/data/heroDefinitions.ts
-src/game/data/enemyDefinitions.ts
-src/game/data/weaponDefinitions.ts
-```
-
-Keep gameplay data separate from image filenames where possible, so the art can change without rewriting combat logic.
-
-## First Asset Batch
-
-For the first art handoff, request only this:
-
-- Big Bro idle sprite.
-- Big Bro 4-frame run animation.
-- Little Bro idle sprite.
-- Little Bro 4-frame run animation.
-- One small enemy 4-frame walk animation.
-- One heavy enemy 4-frame walk animation.
-- Star Popper projectile.
-- Moon Beam projectile.
-- XP gem.
-- Health pickup.
-- One ground texture.
-- Four upgrade icons.
-
-That is enough to make the prototype feel like a real game without producing a huge asset list too early.
-
-## Stage, Boss, and New Weapon Placeholders
-
-The following paths are wired in code with solid-color PNG placeholders. Replace each file in place when final art is ready.
-
-Zagka beach already uses sliced art from `Sprites/zagka beach assets.png` (floor mosaic, stage thumb, and blockers). Re-extract with `node scripts/extract-zagka-beach.mjs` after `npm install sharp`.
-
-Beach pufferfish (Lago) and the Grandpa / Sissy bosses are sliced from `Sprites/Lago_small.png`, `Sprites/Lago_large.png`, `Sprites/Grandpa.png`, and `Sprites/Sissi.png`. Re-extract with `node scripts/extract-character-sheets.mjs`.
-
-### Stage select and backgrounds
-
-```txt
-public/assets/ui/stages/stage_koroni_kids_room_thumb.png
-public/assets/ui/stages/stage_zagka_beach_thumb.png
-public/assets/backgrounds/background_zagka_beach_floor_tile.png
-```
-
-### Beach blockers
-
-```txt
-public/assets/sprites/props/beach_blockers/prop_beach_seaweed_green.png
-public/assets/sprites/props/beach_blockers/prop_beach_seaweed_teal.png
-public/assets/sprites/props/beach_blockers/prop_beach_seaweed_purple.png
-public/assets/sprites/props/beach_blockers/prop_beach_tire.png
-public/assets/sprites/props/beach_blockers/prop_beach_rocks.png
-```
-
-### Bosses
-
-Sliced from `Sprites/Grandpa.png` and `Sprites/Sissi.png`:
-
-```txt
-public/assets/sprites/enemies/boss_grandpa/boss_grandpa_walk_01.png
-public/assets/sprites/enemies/boss_grandpa/boss_grandpa_walk_02.png
-public/assets/sprites/enemies/boss_grandpa/boss_grandpa_walk_03.png
-public/assets/sprites/enemies/boss_grandpa/boss_grandpa_walk_04.png
-public/assets/sprites/enemies/boss_grandpa/boss_grandpa_hit_01.png
-public/assets/sprites/enemies/boss_grandpa/boss_grandpa_tell_01.png
-public/assets/sprites/enemies/boss_grandpa/boss_grandpa_attack_pan_01.png
-public/assets/sprites/enemies/boss_grandpa/boss_grandpa_attack_scooter_01.png
-public/assets/sprites/enemies/boss_grandpa/boss_grandpa_scooter_01.png
-public/assets/sprites/enemies/boss_grandpa/boss_grandpa_scooter_02.png
-public/assets/sprites/enemies/boss_grandpa/boss_grandpa_scooter_spark_01.png
-public/assets/sprites/enemies/boss_sissy/boss_sissy_walk_01.png
-public/assets/sprites/enemies/boss_sissy/boss_sissy_walk_02.png
-public/assets/sprites/enemies/boss_sissy/boss_sissy_hit_01.png
-public/assets/sprites/enemies/boss_sissy/boss_sissy_tell_01.png
-public/assets/sprites/enemies/boss_sissy/boss_sissy_attack_01.png
-```
-
-### Beach enemies (Lago)
-
-Sliced from `Sprites/Lago_small.png` and `Sprites/Lago_large.png`. Used on Zagka beach.
-
-```txt
+public/assets/sprites/enemies/small_insect/
+public/assets/sprites/enemies/large_cockroach/
+public/assets/sprites/enemies/mother_slipper/
 public/assets/sprites/enemies/small_lago/
 public/assets/sprites/enemies/large_lago/
+public/assets/sprites/enemies/giant_squid/
 ```
 
-### New weapons (icon + primary effect sprite)
+Special-attack VFX for enemies (e.g. giant squid tentacle) live in the same folder as the enemy body. See `Docs/ATTACKS_AND_SPRITE_REQUIREMENTS.md` for tentacle frame specs.
 
-```txt
-public/assets/sprites/weapons/watergun/
-public/assets/sprites/weapons/hot-wheels/
-public/assets/sprites/weapons/bad-food/
-public/assets/sprites/weapons/insomnia/
-public/assets/sprites/weapons/presents/
-public/assets/sprites/weapons/knife/
-public/assets/sprites/weapons/slippers/
-public/assets/sprites/weapons/machinegun/
-```
+Walk animations should face **right**. The renderer flips on X when the enemy faces left (`flipX: !enemy.facingRight`).
 
-Regenerate placeholders with:
+Animation timing comes from `walkFrameDuration` in `src/game/enemies.ts` (typically `0.10s` for small, `0.11`–`0.12s` for heavy).
+
+## Status Legend
+
+- **Done** — final art is in the game.
+- **Placeholder** — a solid-color PNG exists at the path; replace in place.
+- **Missing** — no sprite yet; the game draws a colored circle using the enemy's fallback `color`.
+
+---
+
+## Roster Overview
+
+| Greek name | Id | Role | Stage | Art status |
+| --- | --- | --- | --- | --- |
+| Μικρό Έντομο | `small-insect` | Fast swarm | Δωμάτιο Κωρωνης κωδ | Placeholder |
+| Μεγάλη Κατσαρίδα | `large-cockroach` | Slow heavy | Δωμάτιο Κωρωνης κωδ | Placeholder |
+| Παντόφλα της Μαμάς | `mother-slipper` | Special charger | Δωμάτιο Κωρωνης κωδ | Placeholder |
+| Μικρό Λάγο | `small-lago` | Fast swarm | Παραλία Ζαγκά | Done |
+| Μεγάλο Λάγο | `large-lago` | Slow heavy | Παραλία Ζαγκά | Done |
+| Γιγαντιαία Σουπιά | `giant-squid` | Special tentacle | Παραλία Ζαγκά | Sprites done; tentacle AI pending |
+
+### Stage assignments
+
+| Stage | Small enemy | Heavy enemy | Special enemy |
+| --- | --- | --- | --- |
+| `koroni-kids-room` | `small-insect` | `large-cockroach` | `mother-slipper` |
+| `zagka-beach` | `small-lago` | `large-lago` | `giant-squid` |
+
+Each stage swaps the entire enemy roster. Each stage has one special enemy with unique attack behavior.
+
+### Enemy roles
+
+**Swarm (small):** high spawn rate, low HP, fast, low contact damage. Drops blue XP gem (`xp-gem-blue`).
+
+**Heavy (large):** bigger hitbox, more HP, slower, higher damage. Drops purple XP gem (`xp-gem-purple-large`). Can also roll a special pickup (magnet, bomb, chest, book) based on player level.
+
+**Special (`mother-slipper`, `giant-squid`):** unique behavior, rare spawn after 40s (chance ramps 8% → 22%), always drops a special pickup not already on the map. Only one special enemy of a given kind can be alive at once.
+
+---
+
+## Beach Enemies (art complete)
+
+Keep these as the quality bar. Replace only if a specific frame needs a revision.
+
+Re-extract from source sheets with:
 
 ```bash
-node scripts/generate-placeholders.mjs
+node scripts/extract-character-sheets.mjs
 ```
+
+Source sheets: `Sprites/Lago_small.png`, `Sprites/Lago_large.png`. Extraction report: `Sprites/character_sheets_extract_report.json`.
+
+### 1. Μικρό Λάγο (`small-lago`)
+
+**Where:** Παραλία Ζαγκά (`zagka-beach`). Replaces `small-insect` on the beach stage.
+
+**What happens:** chases the player at high speed. No special behavior — pure swarm filler. Stats scale with run progress and difficulty.
+
+**Level 1 (base):** HP 28, speed 58–118, contact damage 10, radius 14, gold 1.
+
+| Need | File | Source size | Draw | Status |
+| --- | --- | --- | --- | --- |
+| Walk | `enemy_small_lago_walk_01.png` to `_05.png` | 296 | 62px | Done |
+| Hit | `enemy_small_lago_hit_01.png` | 296 | 62px | Done |
+
+**Look:** small teal/cyan cartoon pufferfish or beach blob creature. Rounded, bouncy silhouette. Five walk frames give a lively swim/waddle. Hit frame should read as a quick flinch or puff, not a death animation.
+
+**Folder:** `public/assets/sprites/enemies/small_lago/`
+
+### 2. Μεγάλο Λάγο (`large-lago`)
+
+**Where:** Παραλία Ζαγκά. Replaces `large-cockroach` on the beach stage.
+
+**What happens:** slower, tougher chase enemy. Same AI as cockroach — walks toward the player, no tells. Can roll special pickup drops.
+
+**Level 1 (base):** HP 58, speed 58–84, contact damage 18, radius 19, gold 3.
+
+| Need | File | Source size | Draw | Status |
+| --- | --- | --- | --- | --- |
+| Walk | `enemy_large_lago_walk_01.png` to `_04.png` | 424 | 94px | Done |
+| Hit | `enemy_large_lago_hit_01.png` | 424 | 94px | Done |
+
+**Look:** bigger olive/green pufferfish. Must read clearly larger than small Lago at a glance — wider body, spikier fins or puff. Four walk frames. Distinct from the small variant in both size and color (`#8a9a3a` fallback).
+
+**Folder:** `public/assets/sprites/enemies/large_lago/`
+
+### 3. Γιγαντιαία Σουπιά (`giant-squid`)
+
+**Where:** Παραλία Ζαγκά only. Beach special enemy — mirrors `mother-slipper` spawn rules and rewards.
+
+**What happens:** four-phase behavior (same cadence as mother slipper):
+
+1. **Chase** — swims toward the player at normal speed until within 260px and phase timer expires.
+2. **Tell** (0.45s) — stops and shows tell sprite; tentacles twitch so the player reads "lash incoming."
+3. **Attack** — fires one prolonged tentacle along a locked **X or Y axis** (whichever aligns closer with the player). The tentacle **extends** from the squid body to the nearest arena edge (~0.55s), **holds** at full length (~0.20s), then **retracts** (~0.45s). The player takes contact damage when overlapping the tentacle hitbox during extend, hold, or retract. Axis is chosen at tell start: horizontal if `|dx| ≥ |dy|`, else vertical; direction points toward the player.
+4. **Recover** (0.85s) — slows to 45% speed, then returns to chase.
+
+Always drops a special pickup (magnet / bomb / chest / book) that is not already on the map.
+
+**Level 1 (base):** HP 96, speed 52–64, contact damage 24, radius 30, gold 10. Same stats as `mother-slipper`.
+
+**Required body sprites:**
+
+| Need | File | Size | Draw | Status |
+| --- | --- | --- | --- | --- |
+| Walk | `enemy_special_giant_squid_walk_01.png` to `_04.png` | 256–320 | 112px | Done |
+| Tell | `enemy_special_giant_squid_tell_01.png` | 256–320 | 112px | Done |
+| Hit | `enemy_special_giant_squid_hit_01.png` | 256–320 | 112px | Done |
+| Attack pose | `enemy_special_giant_squid_attack_01.png` | 256–320 | 112px | Done |
+
+**Required tentacle VFX** (full spec in `Docs/ATTACKS_AND_SPRITE_REQUIREMENTS.md`):
+
+| Need | File | Size | Status |
+| --- | --- | --- | --- |
+| Tentacle segment, facing right | `enemy_special_giant_squid_tentacle_01.png` to `_03.png` | 512×64 or 256×128 | Done |
+| Optional tip splash | `enemy_special_giant_squid_tentacle_tip_01.png` | 96 | Done |
+
+**Look:** big cartoon beach squid — deep purple/indigo body (`#5a4a8a` fallback), lighter suckers, silly eyes. Must read clearly larger than large Lago. **Tell** frame: puffed mantle, raised tentacles, maybe a small ink bubble. **Attack** pose: one tentacle already unfurling from the body. Tentacle art is a stretchy segmented strip with suckers; code scales length to the arena edge and rotates for vertical lashes. Not realistic tentacle horror — bouncy beach-monster energy.
+
+**Folder:** `public/assets/sprites/enemies/giant_squid/`
+
+---
+
+## Kids-Room Enemies (need game-ready art)
+
+These three enemies are wired in code with solid-color placeholder PNGs. Replace each listed file in place. The game already expects the exact filenames below.
+
+Design metadata for Mother Slipper lives in `Sprites/special_mother_slipper/enemy_special_mother_slipper_metadata.json` (collision box, tell timing, walk cycle notes).
+
+### 4. Μικρό Έντομο (`small-insect`)
+
+**Where:** Δωμάτιο Κωρωνης κωδ (`koroni-kids-room`). Default swarm enemy.
+
+**What happens:** fastest common enemy. Spawns often, dies quickly, fills the screen. Pure chase AI.
+
+**Level 1 (base):** HP 28, speed 58–118, contact damage 10, radius 14, gold 1.
+
+**Required sprites:**
+
+| Need | File | Size | Draw | Status |
+| --- | --- | --- | --- | --- |
+| Walk | `enemy_small_insect_walk_01.png` to `_04.png` | 128–192 | 48px | Placeholder |
+| Hit | `enemy_small_insect_hit_01.png` | 128–192 | 48px | Placeholder |
+
+**Look:** tiny cartoon bug or silly insect — purple/magenta accent (`#d45cff` fallback). Big eyes, round body, maybe wiggly legs. Must stay readable at 48px draw size. Four walk frames with a quick scurry cycle. Hit frame: squish, flash, or brief knockback pose.
+
+**Folder:** `public/assets/sprites/enemies/small_insect/`
+
+### 5. Μεγάλη Κατσαρίδα (`large-cockroach`)
+
+**Where:** Δωμάτιο Κωρωνης κωδ. Heavy enemy; spawn rate rises as the run progresses (up to ~45% of spawns late run).
+
+**What happens:** slower chase, more HP and damage. Can roll special pickup drops (magnet, bomb, chest, book).
+
+**Level 1 (base):** HP 58, speed 58–84, contact damage 18, radius 19, gold 3.
+
+**Required sprites:**
+
+| Need | File | Size | Draw | Status |
+| --- | --- | --- | --- | --- |
+| Walk | `enemy_large_cockroach_walk_01.png` to `_04.png` | 192–256 | 72px | Placeholder |
+| Hit | `enemy_large_cockroach_hit_01.png` | 192–256 | 72px | Placeholder |
+
+**Look:** chunky cartoon cockroach — coral/orange accent (`#ff8e72` fallback). Wider and lower silhouette than the insect. Antennae and shell shape should read at 72px. Kid-gross but funny, not realistic. Hit frame: recoil or shell clatter.
+
+**Folder:** `public/assets/sprites/enemies/large_cockroach/`
+
+### 6. Παντόφλα της Μαμάς (`mother-slipper`)
+
+**Where:** Δωμάτιο Κωρωνης κωδ only. Special enemy — rare spawn after 40s elapsed, chance ramps from 8% to 22%. Only one alive at a time.
+
+**What happens:** four-phase behavior:
+
+1. **Chase** — walks toward the player at normal speed until within 260px and phase timer expires.
+2. **Tell** (0.45s) — stops and shows tell sprite; player should read "something is coming."
+3. **Charge** (0.72s) — dashes in a locked direction at 3.1× speed.
+4. **Recover** (0.85s) — slows to 45% speed, then returns to chase.
+
+Always drops a special pickup (magnet / bomb / chest / book) that is not already on the map.
+
+**Level 1 (base):** HP 96, speed 52–64, contact damage 24, radius 30, gold 10.
+
+**Required sprites:**
+
+| Need | File | Size | Draw | Status |
+| --- | --- | --- | --- | --- |
+| Walk | `enemy_special_mother_slipper_walk_01.png` to `_04.png` | 256–320 | 112px | Placeholder |
+| Tell | `enemy_special_mother_slipper_tell_01.png` | 256–320 | 112px | Placeholder |
+| Hit | `enemy_special_mother_slipper_hit_01.png` | 256–320 | 112px | Placeholder |
+
+**Optional (not wired yet):**
+
+| Need | Suggested file | Notes |
+| --- | --- | --- |
+| Charge dash | `enemy_special_mother_slipper_charge_01.png` | Could replace walk during charge phase |
+| Recover | `enemy_special_mother_slipper_recover_01.png` | Slumped or dizzy after the dash |
+
+**Look:** giant fuzzy house slipper with a face — peach/tan accent (`#e8a07a` fallback). The **tell** frame is the most important: raised slipper, wiggle, or glowing "you're in trouble" pose (see metadata: "raised-slipper tell as a warning before a short scold/charge burst"). Walk cycle: contact → passing → opposite contact → passing. Family-scolding joke, not violent.
+
+**Folder:** `public/assets/sprites/enemies/mother_slipper/`
+
+**Design reference:** `Sprites/special_mother_slipper/enemy_special_mother_slipper_metadata.json` — collision box `{ x: 19, y: 8, w: 41, h: 68 }` on an 80×80 frame (scale up proportionally for final art).
+
+---
+
+## Shared Enemy VFX
+
+These affect all enemies. Most reuse weapon art today; dedicated enemy VFX are optional polish.
+
+| Effect | How it works today | Dedicated enemy art | Status |
+| --- | --- | --- | --- |
+| Hit flash | `hit` sprite shown for `0.18s` after damage | Per-enemy hit frame (listed above) | Partial — Lago done, kids-room placeholder |
+| Slow indicator | `status_slow_web_01.png` floats above slowed enemies | Reuses web-pool weapon sprite | Done (weapon art) |
+| Defeat pop | No VFX — enemy vanishes, XP gem spawns | Optional shared puff | Missing |
+| Contact damage | Invisible — player loses HP on overlap | No sprite needed | — |
+
+**Optional shared defeat pop** (not wired in code yet):
+
+| Need | Suggested file | Size | Status |
+| --- | --- | --- | --- |
+| Defeat puff | `effect_enemy_defeat_01.png` to `_03.png` | 96 | Missing |
+
+**Look:** small cartoon poof, stars, or dust — same playful tone as weapon hit sparks. One shared animation for all enemy types is fine.
+
+---
+
+## Spawning and Scaling Notes
+
+For artists tuning readability across a full run:
+
+- **Spawn mix:** mostly small enemies; heavy chance scales with run progress (0% early → ~45% late). Special enemies (`mother-slipper` on kids-room, `giant-squid` on beach) are a separate roll after 40s.
+- **Stat scaling:** HP × `(1 + progress × 2.5)` × difficulty; speed and damage also rise with progress.
+- **Difficulty modifiers** (`src/game/difficulty.ts`): `super-easy` through `extra-hard` scale enemy HP, damage, speed, and spawn rate.
+- **Drops:** small → blue gem; heavy → purple gem (+ special roll); special enemies → guaranteed special pickup.
+
+---
+
+## Production Order
+
+1. **Small insect walk + hit** — unblocks the default stage visually; highest spawn count.
+2. **Large cockroach walk + hit** — second-most visible kids-room enemy.
+3. **Mother slipper walk + tell + hit** — kids-room special; tell frame is highest priority.
+4. **Giant squid walk + tell + attack + tentacle VFX** — beach special; tentacle strip is the critical readable element.
+5. **Optional charge / recover poses** — hook up in `getEnemySpriteSrc` if added.
+6. **Optional shared defeat pop** — one 3-frame puff for all enemies.
+7. **Polish pass on Lago** — only if a frame needs revision; beach swarm/heavy art is already shippable.
+
+Replace placeholders in place. Do not rename files already wired in `src/game/enemies.ts` unless code is updated to match.
+
+---
+
+## Checklist for a Finished Enemy Sprite Set
+
+An enemy is art-complete when it has:
+
+- Walk loop (`4` frames minimum; `5` is fine — see small Lago) at the source size in the tables above.
+- At least one **hit** frame that reads clearly at draw size for `0.18s`.
+- A **tell** frame (and **attack** pose if wired) if the enemy has special behavior (`mother-slipper`, `giant-squid`).
+- Tentacle / lash VFX if the enemy has a ranged special attack (`giant-squid`).
+- Transparent padding and a centered pivot.
+- A silhouette distinct from other enemies in the same stage, from XP gems, and from common projectiles.
+- Walk art facing **right**; flip is handled in code.
+- Colors that stay readable on both the kids-room floor and beach sand (test both if palettes overlap).
+
+---
+
+## Source Sheets and Scripts
+
+| Enemy | Source sheet | Extract command |
+| --- | --- | --- |
+| Small Lago | `Sprites/Lago_small.png` | `node scripts/extract-character-sheets.mjs` |
+| Large Lago | `Sprites/Lago_large.png` | `node scripts/extract-character-sheets.mjs` |
+| Small insect | — (hand-draw or new sheet) | — |
+| Large cockroach | — (hand-draw or new sheet) | — |
+| Mother slipper | `Sprites/special_mother_slipper/` (metadata + source sheet reference) | manual export to `public/assets/sprites/enemies/mother_slipper/` |
+| Giant squid | — (hand-draw or new sheet) | manual export to `public/assets/sprites/enemies/giant_squid/` |
+
+After re-extracting Lago frames, verify `drawSize` in `src/game/enemies.ts` still matches the suggested values in `Sprites/character_sheets_extract_report.json` (`62` for small, `94` for large).
+
+Implementation files:
+
+```txt
+src/game/enemies.ts
+src/render/spriteRenderer.ts
+src/render/animation.ts
+src/render/assets.ts
+```
+
+Keep gameplay stats and sprite paths in `enemies.ts` so art can change without rewriting combat logic.

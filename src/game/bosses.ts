@@ -67,7 +67,11 @@ export const bossDefinitions: Record<BossId, BossDefinition> = {
     ],
     hitSrc: [`${bossesBase}/boss_sissy/boss_sissy_hit_01.png`],
     tellSrc: [`${bossesBase}/boss_sissy/boss_sissy_tell_01.png`],
-    attackSrc: [`${bossesBase}/boss_sissy/boss_sissy_attack_01.png`],
+    // Index matches attackIndex: 0 = sonic wave, 1 = mice toss.
+    attackSrc: [
+      `${bossesBase}/boss_sissy/boss_sissy_attack_01.png`,
+      `${bossesBase}/boss_sissy/boss_sissy_attack_mice_01.png`,
+    ],
     drawSize: 216,
     walkFrameDuration: 0.16,
     tellDuration: 0.5,

@@ -102,6 +102,7 @@ export function canRollSpecialDrop(enemyId: EnemyId, level: number): boolean {
     enemyId === 'large-cockroach' ||
     enemyId === 'large-lago' ||
     enemyId === 'mother-slipper' ||
+    enemyId === 'giant-squid' ||
     level % 5 === 0
   );
 }
@@ -141,8 +142,8 @@ export function resolveEnemyDrop(
     return pickupIdForEnemy(enemyId);
   }
 
-  // Mother Slipper always drops a special not already on the map.
-  if (enemyId === 'mother-slipper') {
+  // Stage special enemies always drop a special not already on the map.
+  if (enemyId === 'mother-slipper' || enemyId === 'giant-squid') {
     return randomAvailableSpecialPickupId(existingSpecials);
   }
 

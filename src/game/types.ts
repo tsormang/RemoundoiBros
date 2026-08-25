@@ -55,14 +55,18 @@ export type EnemyId =
   | 'large-cockroach'
   | 'mother-slipper'
   | 'small-lago'
-  | 'large-lago';
+  | 'large-lago'
+  | 'giant-squid';
 
-export type EnemyBehavior = 'chase' | 'tell' | 'charge' | 'recover';
+export type EnemyBehavior = 'chase' | 'tell' | 'charge' | 'attack' | 'recover';
 
 export type EnemySprites = {
   walk: string[];
   hit: string[];
   tell?: string[];
+  attack?: string[];
+  tentacle?: string[];
+  tentacleTip?: string;
   drawSize: number;
   walkFrameDuration: number;
 };
@@ -199,6 +203,25 @@ export type SonicWave = {
   maxTravel: number;
   damage: number;
   ttl: number;
+  animTime: number;
+};
+
+export type SquidTentacleAxis = 'horizontal' | 'vertical';
+
+export type SquidTentaclePhase = 'extend' | 'hold' | 'retract';
+
+export type SquidTentacle = {
+  id: number;
+  enemyId: number;
+  origin: Vec2;
+  axis: SquidTentacleAxis;
+  direction: 1 | -1;
+  maxLength: number;
+  length: number;
+  thickness: number;
+  damage: number;
+  phase: SquidTentaclePhase;
+  phaseTimer: number;
   animTime: number;
 };
 

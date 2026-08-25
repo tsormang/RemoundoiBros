@@ -57,6 +57,7 @@ import type {
   Pickup,
   Projectile,
   SonicWave,
+  SquidTentacle,
   StageId,
   TrailSegment,
   Upgrade,
@@ -126,6 +127,19 @@ const BOSS_GRANDPA_SCOOTER_FRAMES = [
   `${BOSS_GRANDPA_SPRITE_BASE}/boss_grandpa_scooter_02.png`,
 ];
 const BOSS_GRANDPA_SCOOTER_SPARK_SRC = `${BOSS_GRANDPA_SPRITE_BASE}/boss_grandpa_scooter_spark_01.png`;
+const BOSS_SISSY_SPRITE_BASE = '/assets/sprites/enemies/boss_sissy';
+const BOSS_SISSY_WAVE_FRAMES = [
+  `${BOSS_SISSY_SPRITE_BASE}/boss_sissy_wave_01.png`,
+  `${BOSS_SISSY_SPRITE_BASE}/boss_sissy_wave_02.png`,
+  `${BOSS_SISSY_SPRITE_BASE}/boss_sissy_wave_03.png`,
+];
+const BOSS_SISSY_MOUSE_FRAMES = [
+  `${BOSS_SISSY_SPRITE_BASE}/boss_sissy_mouse_01.png`,
+  `${BOSS_SISSY_SPRITE_BASE}/boss_sissy_mouse_02.png`,
+  `${BOSS_SISSY_SPRITE_BASE}/boss_sissy_mouse_03.png`,
+  `${BOSS_SISSY_SPRITE_BASE}/boss_sissy_mouse_04.png`,
+];
+const BOSS_SISSY_MOUSE_PUFF_SRC = `${BOSS_SISSY_SPRITE_BASE}/boss_sissy_mouse_puff_01.png`;
 const GEM_PULL_DISTANCE = 118;
 const GEM_PULL_SPEED = 5.6;
 const MAGNET_DURATION_SECONDS = 3;
@@ -135,6 +149,11 @@ const BOMB_FLASH_SECONDS = 0.45;
 const MOTHER_SLIPPER_MIN_ELAPSED = 40;
 const MOTHER_SLIPPER_CHANCE_MIN = 0.08;
 const MOTHER_SLIPPER_CHANCE_MAX = 0.22;
+const GIANT_SQUID_TENTACLE_EXTEND_SECONDS = 0.55;
+const GIANT_SQUID_TENTACLE_HOLD_SECONDS = 0.2;
+const GIANT_SQUID_TENTACLE_RETRACT_SECONDS = 0.45;
+const GIANT_SQUID_TENTACLE_THICKNESS = 44;
+const GIANT_SQUID_TENTACLE_DRAW_THICKNESS = 40;
 const WEB_POOL_TICK_INTERVAL = 0.5;
 const LINGERING_TICK_INTERVAL = 0.45;
 const PROJECTILE_DRAW_SIZE = 32;
@@ -169,7 +188,9 @@ export class Game {
   private boss: Boss | null = null;
   private bossProjectiles: BossProjectile[] = [];
   private bossPanBursts: Array<{ id: number; position: Vec2; ttl: number; maxTtl: number; animTime: number }> = [];
+  private bossMousePuffs: Array<{ id: number; position: Vec2; ttl: number; maxTtl: number; animTime: number }> = [];
   private sonicWaves: SonicWave[] = [];
+  private squidTentacles: SquidTentacle[] = [];
   private projectiles: Projectile[] = [];
   private webPools: WebPoolEffect[] = [];
   private orbitToys: OrbitToy[] = [];
@@ -256,7 +277,9 @@ export class Game {
     this.boss = null;
     this.bossProjectiles = [];
     this.bossPanBursts = [];
+    this.bossMousePuffs = [];
     this.sonicWaves = [];
+    this.squidTentacles = [];
     this.projectiles = [];
     this.webPools = [];
     this.orbitToys = [];
@@ -323,11 +346,13 @@ export class Game {
       }
 
       this.updateEnemies(deltaSeconds);
+      this.updateSquidTentacles(deltaSeconds);
     } else {
       this.damageTimer -= deltaSeconds;
       this.updateBoss(deltaSeconds);
       this.updateBossProjectiles(deltaSeconds);
       this.updateBossPanBursts(deltaSeconds);
+      this.updateBossMousePuffs(deltaSeconds);
       this.updateSonicWaves(deltaSeconds);
     }
 
@@ -359,9 +384,11 @@ export class Game {
     this.drawConeEffects(ctx);
     this.drawPickups(ctx);
     this.drawProjectiles(ctx);
+    this.drawBossMousePuffs(ctx);
     this.drawBossProjectiles(ctx);
     this.drawBossPanBursts(ctx);
     this.drawSonicWaves(ctx);
+    this.drawSquidTentacles(ctx);
     this.drawExplosions(ctx);
     this.drawOrbitToys(ctx);
     this.drawMeleeSlashes(ctx);
@@ -483,6 +510,8 @@ export class Game {
 
       if (enemy.kind === 'mother-slipper') {
         this.updateMotherSlipper(enemy, deltaSeconds, toPlayer, speedScale);
+      } else if (enemy.kind === 'giant-squid') {
+        this.updateGiantSquid(enemy, deltaSeconds, toPlayer, speedScale);
       } else {
         const next = {
           x: enemy.position.x + toPlayer.x * enemy.speed * speedScale * deltaSeconds,
@@ -613,6 +642,236 @@ export class Game {
       enemy.behavior = 'chase';
       enemy.phaseTimer = randomRange(0.35, 0.9);
     }
+  }
+
+  private updateGiantSquid(
+    enemy: Enemy,
+    deltaSeconds: number,
+    toPlayer: Vec2,
+    speedScale: number,
+  ): void {
+    const definition = getEnemyDefinition('giant-squid');
+    const tellDuration = definition.tellDuration ?? 0.45;
+    const recoverDuration = definition.recoverDuration ?? 0.85;
+    const engageDistance = definition.engageDistance ?? 300;
+
+    if (enemy.behavior === 'chase') {
+      const next = {
+        x: enemy.position.x + toPlayer.x * enemy.speed * speedScale * deltaSeconds,
+        y: enemy.position.y + toPlayer.y * enemy.speed * speedScale * deltaSeconds,
+      };
+      enemy.position = this.moveWithBlockers(
+        enemy.position,
+        next,
+        enemy.radius,
+      );
+
+      if (Math.abs(toPlayer.x) > 0.01) {
+        enemy.facingRight = toPlayer.x > 0;
+      }
+
+      if (
+        enemy.phaseTimer <= 0 &&
+        distanceSquared(enemy.position, this.player.position) <=
+          engageDistance * engageDistance
+      ) {
+        enemy.behavior = 'tell';
+        enemy.phaseTimer = tellDuration;
+        this.lockSquidTentacleAxis(enemy);
+      }
+
+      return;
+    }
+
+    if (enemy.behavior === 'tell') {
+      this.lockSquidTentacleAxis(enemy);
+
+      if (enemy.phaseTimer <= 0) {
+        enemy.behavior = 'attack';
+        this.spawnSquidTentacle(enemy);
+      }
+
+      return;
+    }
+
+    if (enemy.behavior === 'attack') {
+      if (!this.squidTentacles.some((tentacle) => tentacle.enemyId === enemy.id)) {
+        enemy.behavior = 'recover';
+        enemy.phaseTimer = recoverDuration;
+      }
+
+      return;
+    }
+
+    const next = {
+      x: enemy.position.x + toPlayer.x * enemy.speed * 0.45 * speedScale * deltaSeconds,
+      y: enemy.position.y + toPlayer.y * enemy.speed * 0.45 * speedScale * deltaSeconds,
+    };
+    enemy.position = this.moveWithBlockers(enemy.position, next, enemy.radius);
+
+    if (Math.abs(toPlayer.x) > 0.01) {
+      enemy.facingRight = toPlayer.x > 0;
+    }
+
+    if (enemy.phaseTimer <= 0) {
+      enemy.behavior = 'chase';
+      enemy.phaseTimer = randomRange(0.35, 0.9);
+    }
+  }
+
+  private lockSquidTentacleAxis(enemy: Enemy): void {
+    const dx = this.player.position.x - enemy.position.x;
+    const dy = this.player.position.y - enemy.position.y;
+
+    if (Math.abs(dx) >= Math.abs(dy)) {
+      enemy.chargeDirection = { x: dx >= 0 ? 1 : -1, y: 0 };
+      enemy.facingRight = dx >= 0;
+      return;
+    }
+
+    enemy.chargeDirection = { x: 0, y: dy >= 0 ? 1 : -1 };
+  }
+
+  private getSquidTentacleMaxLength(origin: Vec2, axisDirection: Vec2): number {
+    if (Math.abs(axisDirection.x) > 0.5) {
+      return axisDirection.x > 0
+        ? this.world.width - ARENA_PADDING - origin.x
+        : origin.x - ARENA_PADDING;
+    }
+
+    return axisDirection.y > 0
+      ? this.world.height - ARENA_PADDING - origin.y
+      : origin.y - ARENA_PADDING;
+  }
+
+  private spawnSquidTentacle(enemy: Enemy): void {
+    const maxLength = Math.max(
+      48,
+      this.getSquidTentacleMaxLength(enemy.position, enemy.chargeDirection),
+    );
+    const axis =
+      Math.abs(enemy.chargeDirection.x) > 0.5 ? 'horizontal' : 'vertical';
+    const direction = (axis === 'horizontal'
+      ? enemy.chargeDirection.x
+      : enemy.chargeDirection.y) as 1 | -1;
+
+    this.squidTentacles.push({
+      id: this.nextEntityId++,
+      enemyId: enemy.id,
+      origin: { ...enemy.position },
+      axis,
+      direction,
+      maxLength,
+      length: 0,
+      thickness: GIANT_SQUID_TENTACLE_THICKNESS,
+      damage: enemy.damage,
+      phase: 'extend',
+      phaseTimer: 0,
+      animTime: 0,
+    });
+  }
+
+  private updateSquidTentacles(deltaSeconds: number): void {
+    for (const tentacle of this.squidTentacles) {
+      tentacle.animTime += deltaSeconds;
+
+      if (tentacle.phase === 'extend') {
+        tentacle.length = Math.min(
+          tentacle.maxLength,
+          tentacle.length +
+            (tentacle.maxLength / GIANT_SQUID_TENTACLE_EXTEND_SECONDS) *
+              deltaSeconds,
+        );
+
+        if (tentacle.length >= tentacle.maxLength) {
+          tentacle.phase = 'hold';
+          tentacle.phaseTimer = GIANT_SQUID_TENTACLE_HOLD_SECONDS;
+        }
+      } else if (tentacle.phase === 'hold') {
+        tentacle.phaseTimer -= deltaSeconds;
+
+        if (tentacle.phaseTimer <= 0) {
+          tentacle.phase = 'retract';
+        }
+      } else {
+        tentacle.length = Math.max(
+          0,
+          tentacle.length -
+            (tentacle.maxLength / GIANT_SQUID_TENTACLE_RETRACT_SECONDS) *
+              deltaSeconds,
+        );
+      }
+
+      if (
+        tentacle.length > 0 &&
+        this.playerHitsSquidTentacle(tentacle) &&
+        this.damageTimer <= 0
+      ) {
+        this.player.hp -= tentacle.damage;
+        this.damageTimer = DAMAGE_TICK_SECONDS;
+        this.hurtTimer = HURT_FLASH_SECONDS;
+      }
+    }
+
+    this.squidTentacles = this.squidTentacles.filter(
+      (tentacle) => tentacle.phase !== 'retract' || tentacle.length > 0,
+    );
+  }
+
+  private playerHitsSquidTentacle(tentacle: SquidTentacle): boolean {
+    const halfThickness = tentacle.thickness / 2 + this.player.radius;
+
+    if (tentacle.axis === 'horizontal') {
+      const endX = tentacle.origin.x + tentacle.direction * tentacle.length;
+      const minX = Math.min(tentacle.origin.x, endX) - this.player.radius;
+      const maxX = Math.max(tentacle.origin.x, endX) + this.player.radius;
+
+      if (
+        this.player.position.x < minX ||
+        this.player.position.x > maxX
+      ) {
+        return false;
+      }
+
+      return (
+        Math.abs(this.player.position.y - tentacle.origin.y) <= halfThickness
+      );
+    }
+
+    const endY = tentacle.origin.y + tentacle.direction * tentacle.length;
+    const minY = Math.min(tentacle.origin.y, endY) - this.player.radius;
+    const maxY = Math.max(tentacle.origin.y, endY) + this.player.radius;
+
+    if (
+      this.player.position.y < minY ||
+      this.player.position.y > maxY
+    ) {
+      return false;
+    }
+
+    return Math.abs(this.player.position.x - tentacle.origin.x) <= halfThickness;
+  }
+
+  private getSquidTentacleRotation(tentacle: SquidTentacle): number {
+    if (tentacle.axis === 'horizontal') {
+      return tentacle.direction > 0 ? 0 : Math.PI;
+    }
+
+    return tentacle.direction > 0 ? Math.PI / 2 : -Math.PI / 2;
+  }
+
+  private getSquidTentacleTipPosition(tentacle: SquidTentacle): Vec2 {
+    if (tentacle.axis === 'horizontal') {
+      return {
+        x: tentacle.origin.x + tentacle.direction * tentacle.length,
+        y: tentacle.origin.y,
+      };
+    }
+
+    return {
+      x: tentacle.origin.x,
+      y: tentacle.origin.y + tentacle.direction * tentacle.length,
+    };
   }
 
   private updateWeapons(deltaSeconds: number): void {
@@ -1889,6 +2148,13 @@ export class Game {
       this.defeatEnemy(enemy, true);
     }
 
+    if (defeated.length > 0) {
+      const defeatedIds = new Set(defeated.map((enemy) => enemy.id));
+      this.squidTentacles = this.squidTentacles.filter(
+        (tentacle) => !defeatedIds.has(tentacle.enemyId),
+      );
+    }
+
     this.enemies = this.enemies.filter((enemy) => enemy.hp > 0);
   }
 
@@ -2095,6 +2361,7 @@ export class Game {
   private enterBossPhase(bossKind: BossId = pickRandomBoss()): void {
     this.bossPhase = true;
     this.enemies = [];
+    this.squidTentacles = [];
     this.pickups = [];
     const side = Math.floor(Math.random() * 4);
     const position = this.spawnPositionForSide(side);
@@ -2241,6 +2508,7 @@ export class Game {
     }
 
     const mouseCount = 8;
+    this.spawnBossMousePuff(boss.position);
     for (let index = 0; index < mouseCount; index += 1) {
       const angle = (Math.PI * 2 * index) / mouseCount;
       const mouseDirection = { x: Math.cos(angle), y: Math.sin(angle) };
@@ -2325,6 +2593,25 @@ export class Game {
     this.bossPanBursts = this.bossPanBursts.filter((burst) => burst.ttl > 0);
   }
 
+  private spawnBossMousePuff(position: Vec2): void {
+    this.bossMousePuffs.push({
+      id: this.nextEntityId++,
+      position: { ...position },
+      ttl: 0.36,
+      maxTtl: 0.36,
+      animTime: 0,
+    });
+  }
+
+  private updateBossMousePuffs(deltaSeconds: number): void {
+    for (const puff of this.bossMousePuffs) {
+      puff.ttl -= deltaSeconds;
+      puff.animTime += deltaSeconds;
+    }
+
+    this.bossMousePuffs = this.bossMousePuffs.filter((puff) => puff.ttl > 0);
+  }
+
   private updateSonicWaves(deltaSeconds: number): void {
     for (const wave of this.sonicWaves) {
       const speed = 340;
@@ -2334,7 +2621,8 @@ export class Game {
       wave.ttl -= deltaSeconds;
       wave.animTime += deltaSeconds;
 
-      const halfWidth = wave.width / 2;
+      const halfLength = wave.width / 2;
+      const halfThickness = wave.length / 2;
       const toPlayer = {
         x: this.player.position.x - wave.position.x,
         y: this.player.position.y - wave.position.y,
@@ -2346,9 +2634,9 @@ export class Game {
       );
 
       if (
-        along >= -wave.length / 2 &&
-        along <= wave.length / 2 &&
-        perp <= halfWidth + this.player.radius &&
+        along >= -halfLength &&
+        along <= halfLength &&
+        perp <= halfThickness + this.player.radius &&
         this.damageTimer <= 0
       ) {
         this.player.hp -= wave.damage;
@@ -2386,6 +2674,7 @@ export class Game {
     this.boss = null;
     this.bossProjectiles = [];
     this.bossPanBursts = [];
+    this.bossMousePuffs = [];
     this.sonicWaves = [];
     this.victory = true;
     this.running = false;
@@ -2622,6 +2911,9 @@ export class Game {
       BOSS_GRANDPA_PAN_SPLAT_SRC,
       ...BOSS_GRANDPA_SCOOTER_FRAMES,
       BOSS_GRANDPA_SCOOTER_SPARK_SRC,
+      ...BOSS_SISSY_WAVE_FRAMES,
+      ...BOSS_SISSY_MOUSE_FRAMES,
+      BOSS_SISSY_MOUSE_PUFF_SRC,
       ...allPickupSpriteSources(),
       ...allWeaponSpriteSources(),
     ];
@@ -2784,6 +3076,14 @@ export class Game {
       sprites.tell.length > 0
     ) {
       return sprites.tell[0];
+    }
+
+    if (
+      enemy.behavior === 'attack' &&
+      sprites.attack &&
+      sprites.attack.length > 0
+    ) {
+      return sprites.attack[0];
     }
 
     return getAnimationFrame(
@@ -3134,6 +3434,23 @@ export class Game {
         continue;
       }
 
+      if (projectile.kind === 'mouse') {
+        const angle = Math.atan2(projectile.velocity.y, projectile.velocity.x);
+        const frame = getAnimationFrame(
+          { frames: BOSS_SISSY_MOUSE_FRAMES, frameDuration: 0.07 },
+          projectile.animTime,
+        );
+
+        drawSprite(ctx, frame, {
+          x: projectile.position.x,
+          y: projectile.position.y,
+          size: 38,
+          rotation: angle,
+          smooth: true,
+        });
+        continue;
+      }
+
       const color = '#6b6b6b';
       ctx.fillStyle = color;
       ctx.beginPath();
@@ -3174,15 +3491,102 @@ export class Game {
     }
   }
 
+  private drawBossMousePuffs(ctx: CanvasRenderingContext2D): void {
+    for (const puff of this.bossMousePuffs) {
+      const progress = 1 - puff.ttl / puff.maxTtl;
+      drawSprite(ctx, BOSS_SISSY_MOUSE_PUFF_SRC, {
+        x: puff.position.x,
+        y: puff.position.y,
+        size: 66 + progress * 18,
+        alpha: clamp(puff.ttl / puff.maxTtl, 0, 0.9),
+        rotation: progress * 0.35,
+        smooth: true,
+      });
+    }
+  }
+
   private drawSonicWaves(ctx: CanvasRenderingContext2D): void {
     for (const wave of this.sonicWaves) {
+      const angle = Math.atan2(wave.direction.y, wave.direction.x);
+      const frame = getAnimationFrame(
+        { frames: BOSS_SISSY_WAVE_FRAMES, frameDuration: 0.08 },
+        wave.animTime,
+      );
+      const drew = drawSprite(ctx, frame, {
+        x: wave.position.x,
+        y: wave.position.y,
+        width: wave.width,
+        height: wave.length,
+        rotation: angle,
+        alpha: 0.78,
+        smooth: true,
+      });
+
+      if (drew) {
+        continue;
+      }
+
       ctx.save();
       ctx.translate(wave.position.x, wave.position.y);
-      const angle = Math.atan2(wave.direction.y, wave.direction.x);
       ctx.rotate(angle);
       ctx.fillStyle = 'rgba(255, 100, 200, 0.35)';
-      ctx.fillRect(-wave.length / 2, -wave.width / 2, wave.length, wave.width);
+      ctx.fillRect(-wave.width / 2, -wave.length / 2, wave.width, wave.length);
       ctx.restore();
+    }
+  }
+
+  private drawSquidTentacles(ctx: CanvasRenderingContext2D): void {
+    const squidDefinition = getEnemyDefinition('giant-squid');
+    const tentacleFrames = squidDefinition.sprites.tentacle ?? [];
+    const tipSrc = squidDefinition.sprites.tentacleTip;
+
+    for (const tentacle of this.squidTentacles) {
+      if (tentacle.length <= 0) {
+        continue;
+      }
+
+      const rotation = this.getSquidTentacleRotation(tentacle);
+      const progress = clamp(tentacle.length / tentacle.maxLength, 0, 1);
+      const frameIndex =
+        tentacle.phase === 'retract'
+          ? Math.floor((1 - progress) * Math.max(tentacleFrames.length - 1, 0))
+          : Math.floor(progress * Math.max(tentacleFrames.length - 1, 0));
+      const tentacleSrc =
+        tentacleFrames[frameIndex] ?? tentacleFrames[tentacleFrames.length - 1];
+
+      if (tentacleSrc) {
+        const drew = drawSprite(ctx, tentacleSrc, {
+          x: tentacle.origin.x,
+          y: tentacle.origin.y,
+          width: tentacle.length,
+          height: GIANT_SQUID_TENTACLE_DRAW_THICKNESS,
+          rotation,
+          anchorX: 0,
+          anchorY: 0.5,
+          alpha: 0.92,
+          smooth: true,
+        });
+
+        if (!drew) {
+          ctx.save();
+          ctx.translate(tentacle.origin.x, tentacle.origin.y);
+          ctx.rotate(rotation);
+          ctx.fillStyle = 'rgba(90, 74, 138, 0.55)';
+          ctx.fillRect(0, -GIANT_SQUID_TENTACLE_DRAW_THICKNESS / 2, tentacle.length, GIANT_SQUID_TENTACLE_DRAW_THICKNESS);
+          ctx.restore();
+        }
+      }
+
+      if (tipSrc && tentacle.length > 24) {
+        const tip = this.getSquidTentacleTipPosition(tentacle);
+        drawSprite(ctx, tipSrc, {
+          x: tip.x,
+          y: tip.y,
+          size: 36,
+          rotation,
+          smooth: true,
+        });
+      }
     }
   }
 
