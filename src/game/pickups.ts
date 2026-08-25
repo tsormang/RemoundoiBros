@@ -9,12 +9,23 @@ import type {
 const gemsBase = '/assets/sprites/pickups/gems';
 const specialsBase = '/assets/sprites/pickups/specials';
 
+/** Specials that can drop from enemies. */
 export const specialPickupIds: SpecialPickupId[] = [
   'special-magnet',
   'special-bomb',
   'special-chest',
   'special-book',
 ];
+
+/** Specials placed at map corners at stage start. */
+export const cornerPowerupIds: SpecialPickupId[] = [
+  'special-magnet',
+  'special-bomb',
+  'special-chest',
+  'special-book',
+];
+
+export const CORNER_ATTACK_UNLOCK_CHANCE = 0.25;
 
 export const pickupDefinitions: Record<PickupId, PickupDefinition> = {
   'xp-gem-blue': {
@@ -77,6 +88,17 @@ export const pickupDefinitions: Record<PickupId, PickupDefinition> = {
     label: 'K',
     color: '#9b7bff',
   },
+  'special-attack-unlock': {
+    id: 'special-attack-unlock',
+    // Drawn with the chosen weapon icon at runtime.
+    src: '',
+    drawSize: 48,
+    radius: 16,
+    xp: 0,
+    gold: 0,
+    label: '!',
+    color: '#ffd166',
+  },
 };
 
 export function getPickupDefinition(id: PickupId): PickupDefinition {
@@ -88,7 +110,14 @@ export function isXpPickup(id: PickupId): id is XpPickupId {
 }
 
 export function isSpecialPickup(id: PickupId): id is SpecialPickupId {
-  return specialPickupIds.includes(id as SpecialPickupId);
+  return (
+    specialPickupIds.includes(id as SpecialPickupId) ||
+    id === 'special-attack-unlock'
+  );
+}
+
+export function randomCornerPowerupId(): SpecialPickupId {
+  return cornerPowerupIds[Math.floor(Math.random() * cornerPowerupIds.length)];
 }
 
 export function pickupIdForEnemy(enemyId: EnemyId): XpPickupId {

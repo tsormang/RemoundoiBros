@@ -22,7 +22,7 @@ export type StageDefinition = {
 export const stages: StageDefinition[] = [
   {
     id: 'koroni-kids-room',
-    title: "Δωμάτιο Κωρωνης κωδ",
+    title: 'Δωμάτιο στη Κορώνη',
     description: 'Το παιδικό δωμάτιο με παιχνίδια και εμπόδια.',
     thumbnailSrc: '/assets/ui/stages/stage_koroni_kids_room_thumb.png',
     thumbnailFallbackColor: '#c4a882',
@@ -44,7 +44,7 @@ export const stages: StageDefinition[] = [
   },
   {
     id: 'zagka-beach',
-    title: 'Παραλία Ζαγκά',
+    title: 'Παραλία Ζάγκα',
     description: 'Άμμος, φύκια και καλοκαιρινά εμπόδια.',
     thumbnailSrc: '/assets/ui/stages/stage_zagka_beach_thumb.png',
     thumbnailFallbackColor: '#e8d5a3',

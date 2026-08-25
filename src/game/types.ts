@@ -368,7 +368,8 @@ export type SpecialPickupId =
   | 'special-magnet'
   | 'special-bomb'
   | 'special-chest'
-  | 'special-book';
+  | 'special-book'
+  | 'special-attack-unlock';
 
 export type PickupId = XpPickupId | SpecialPickupId;
 
@@ -389,6 +390,8 @@ export type Pickup = {
   position: Vec2;
   radius: number;
   xp: number;
+  /** Present when kind is special-attack-unlock; icon is that weapon's. */
+  unlockWeaponId?: WeaponId;
 };
 
 export type UpgradeKind = 'weapon-new' | 'weapon-level' | 'passive';

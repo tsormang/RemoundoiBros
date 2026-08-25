@@ -21,9 +21,11 @@ import {
 import { getEnemyDefinition, getEnemySpriteSources } from './enemies';
 import {
   allPickupSpriteSources,
+  CORNER_ATTACK_UNLOCK_CHANCE,
   getPickupDefinition,
   isSpecialPickup,
   isXpPickup,
+  randomCornerPowerupId,
   resolveEnemyDrop,
 } from './pickups';
 import {
@@ -67,7 +69,12 @@ import type {
   WeaponInstance,
   WebPoolEffect,
 } from './types';
-import { loadHeroUnlocks, unlockRandomWeaponForHero } from './unlocks';
+import {
+  getLockedUnlockableWeapons,
+  loadHeroUnlocks,
+  unlockRandomWeaponForHero,
+  unlockWeaponForHero,
+} from './unlocks';
 import { drawAttackUpgradeChoices } from './upgrades';
 import {
   canEvolve,
@@ -76,6 +83,7 @@ import {
   getWeaponSpriteSources,
   getWeaponStats,
   MAX_WEAPON_LEVEL,
+  UNLOCKABLE_WEAPON_IDS,
   type BadFoodStats,
   type HotWheelsStats,
   type InsomniaStats,
@@ -144,6 +152,7 @@ const ENEMY_HIT_FLASH_SECONDS = 0.18;
 const BLOCKER_SPAWN_PADDING = 72;
 const BLOCKER_PLAYER_CLEARANCE = 120;
 const BLOCKER_OVERLAP_PADDING = 18;
+const CORNER_POWERUP_EDGE_OFFSET = 36;
 const BOSS_GRANDPA_SPRITE_BASE = '/assets/sprites/enemies/boss_grandpa';
 const BOSS_GRANDPA_PAN_FRAMES = [
   `${BOSS_GRANDPA_SPRITE_BASE}/boss_grandpa_pan_01.png`,
@@ -357,6 +366,7 @@ export class Game {
     this.gameOver = false;
     this.syncOrbitToys();
     this.spawnBlockers();
+    this.spawnCornerPowerups();
   }
 
   update(deltaSeconds: number, input: InputState): void {
@@ -2311,14 +2321,16 @@ export class Game {
       }
 
       if (isSpecialPickup(pickup.kind)) {
-        this.applySpecialPickup(pickup.kind);
+        this.applySpecialPickup(pickup);
       }
     }
 
     this.processLevelUps();
   }
 
-  private applySpecialPickup(kind: Pickup['kind']): void {
+  private applySpecialPickup(pickup: Pickup): void {
+    const kind = pickup.kind;
+
     if (kind === 'special-magnet') {
       this.magnetTimer = MAGNET_DURATION_SECONDS;
       return;
@@ -2336,6 +2348,15 @@ export class Game {
 
     if (kind === 'special-book') {
       this.xp += this.xpToNext;
+      return;
+    }
+
+    if (kind === 'special-attack-unlock' && pickup.unlockWeaponId) {
+      if (this.developerMode) {
+        return;
+      }
+      unlockWeaponForHero(this.hero.id, pickup.unlockWeaponId);
+      this.unlockedWeaponIds.add(pickup.unlockWeaponId);
     }
   }
 
@@ -3036,6 +3057,56 @@ export class Game {
     }
   }
 
+  private spawnCornerPowerups(): void {
+    if (this.room.width <= 0 || this.room.height <= 0) {
+      return;
+    }
+
+    const inset = this.getArenaPadding() + CORNER_POWERUP_EDGE_OFFSET;
+    const corners: Vec2[] = [
+      { x: inset, y: inset },
+      { x: this.room.width - inset, y: inset },
+      { x: inset, y: this.room.height - inset },
+      { x: this.room.width - inset, y: this.room.height - inset },
+    ];
+
+    let unlockCornerIndex = -1;
+    let unlockWeaponId: WeaponId | null = null;
+
+    if (!this.developerMode && Math.random() < CORNER_ATTACK_UNLOCK_CHANCE) {
+      const locked = getLockedUnlockableWeapons(this.hero.id);
+      if (locked.length > 0) {
+        unlockWeaponId = locked[Math.floor(Math.random() * locked.length)];
+        unlockCornerIndex = Math.floor(Math.random() * corners.length);
+      }
+    }
+
+    for (let i = 0; i < corners.length; i += 1) {
+      if (i === unlockCornerIndex && unlockWeaponId) {
+        const definition = getPickupDefinition('special-attack-unlock');
+        this.pickups.push({
+          id: this.nextEntityId++,
+          kind: 'special-attack-unlock',
+          position: { ...corners[i] },
+          radius: definition.radius,
+          xp: 0,
+          unlockWeaponId,
+        });
+        continue;
+      }
+
+      const kind = randomCornerPowerupId();
+      const definition = getPickupDefinition(kind);
+      this.pickups.push({
+        id: this.nextEntityId++,
+        kind,
+        position: { ...corners[i] },
+        radius: definition.radius,
+        xp: definition.xp,
+      });
+    }
+  }
+
   private moveWithBlockers(
     current: Vec2,
     next: Vec2,
@@ -3321,11 +3392,18 @@ export class Game {
   private drawPickups(ctx: CanvasRenderingContext2D): void {
     for (const pickup of this.pickups) {
       const definition = getPickupDefinition(pickup.kind);
-      const drewSprite = drawSprite(ctx, definition.src, {
-        x: pickup.position.x,
-        y: pickup.position.y,
-        size: definition.drawSize,
-      });
+      const spriteSrc =
+        pickup.kind === 'special-attack-unlock' && pickup.unlockWeaponId
+          ? getWeaponDefinition(pickup.unlockWeaponId).sprites.icon
+          : definition.src;
+      const drewSprite = Boolean(
+        spriteSrc &&
+          drawSprite(ctx, spriteSrc, {
+            x: pickup.position.x,
+            y: pickup.position.y,
+            size: definition.drawSize,
+          }),
+      );
 
       if (drewSprite) {
         continue;
@@ -3824,6 +3902,11 @@ export function getRunAssetSources(config: GameConfig): string[] {
     for (const src of getWeaponSpriteSources(weaponId)) {
       sources.add(src);
     }
+  }
+
+  // Corner attack-unlock pickups may show a still-locked weapon icon.
+  for (const weaponId of UNLOCKABLE_WEAPON_IDS) {
+    sources.add(getWeaponDefinition(weaponId).sprites.icon);
   }
 
   const heroSprites = hero.sprites;
