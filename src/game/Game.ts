@@ -2441,8 +2441,10 @@ export class Game {
     this.enemies = [];
     this.squidTentacles = [];
     this.pickups = [];
-    const side = Math.floor(Math.random() * 4);
-    const position = this.spawnPositionForSide(side);
+    const position = {
+      x: this.room.width / 2,
+      y: this.room.height / 2,
+    };
     this.boss = createBossEntity(
       this.nextEntityId++,
       bossKind,
@@ -2560,7 +2562,7 @@ export class Game {
             x: direction.x * 420,
             y: direction.y * 420,
           },
-          radius: 16,
+          radius: 32,
           damage: boss.damage * 1.1,
           ttl: 3.5,
           animTime: 0,
@@ -2574,8 +2576,8 @@ export class Game {
         id: this.nextEntityId++,
         position: { ...boss.position },
         direction: { ...direction },
-        width: 120,
-        length: 48,
+        width: 240,
+        length: 96,
         traveled: 0,
         maxTravel: Math.max(this.room.width, this.room.height) + 200,
         damage: boss.damage * 1.2,
@@ -3459,9 +3461,9 @@ export class Game {
         );
 
         drawSprite(ctx, BOSS_GRANDPA_SCOOTER_SPARK_SRC, {
-          x: projectile.position.x - direction.x * 26,
-          y: projectile.position.y - direction.y * 26,
-          size: 42,
+          x: projectile.position.x - direction.x * 52,
+          y: projectile.position.y - direction.y * 52,
+          size: 84,
           rotation: angle,
           alpha: 0.55 + Math.sin(projectile.animTime * 28) * 0.18,
           smooth: true,
@@ -3469,7 +3471,7 @@ export class Game {
         drawSprite(ctx, frame, {
           x: projectile.position.x,
           y: projectile.position.y,
-          size: 64,
+          size: 128,
           rotation: angle,
           smooth: true,
         });
