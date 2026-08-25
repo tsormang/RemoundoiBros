@@ -101,6 +101,8 @@ export type BlockerId =
   | 'beach-tire'
   | 'beach-rocks';
 
+export type BlockerSize = 'small' | 'medium' | 'large';
+
 export type BlockerDefinition = {
   id: BlockerId;
   src: string;
@@ -113,6 +115,7 @@ export type Blocker = {
   id: number;
   kind: BlockerId;
   position: Vec2;
+  size: BlockerSize;
 };
 
 export type HeroDefinition = {
@@ -404,7 +407,7 @@ export type InputState = {
   move: Vec2;
 };
 
-export type RunDurationMinutes = 3 | 6 | 9 | 12;
+export type RunDurationMinutes = 2 | 4 | 6 | 8;
 
 export type GameSnapshot = {
   hero: HeroDefinition;

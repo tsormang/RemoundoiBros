@@ -109,7 +109,7 @@ export function computeBossHp(
   durationSeconds: number,
   difficulty: DifficultyModifiers,
 ): number {
-  const durationScale = 0.75 + durationSeconds / 720;
+  const durationScale = 0.75 + durationSeconds / 480;
   return definition.baseHp * durationScale * difficulty.enemyHp;
 }
 
@@ -141,6 +141,16 @@ export function createBossEntity(
     attackIndex: 0,
     attackDirection: { x: 1, y: 0 },
   };
+}
+
+export function getBossSpriteSources(id: BossId): string[] {
+  const boss = bossDefinitions[id];
+  return [
+    ...boss.walkSrc,
+    ...boss.hitSrc,
+    ...(boss.tellSrc ?? []),
+    ...(boss.attackSrc ?? []),
+  ];
 }
 
 export function allBossSpriteSources(): string[] {

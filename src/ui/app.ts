@@ -1,4 +1,4 @@
-import { Game } from '../game/Game';
+import { Game, getRunAssetSources } from '../game/Game';
 import { BOSS_FIGHT_OPTIONS, parseBossId } from '../game/bosses';
 import { loadDeveloperMode, saveDeveloperMode } from '../game/developer';
 import {
@@ -11,6 +11,7 @@ import {
 import { heroes } from '../game/heroes';
 import {
   DEFAULT_STAGE_ID,
+  getStageById,
   RUN_DURATION_OPTIONS,
   stages,
   type StageDefinition,
@@ -38,7 +39,9 @@ import {
   resetAllPlayerStats,
   saveRunSummary,
 } from '../infra/runRepository';
+import { preloadImagesWithProgress } from '../render/assets';
 import { formatTime } from './format';
+import { mountLoadingScreen } from './loadingScreen';
 import { mountSplashScreen, type SplashHandle } from './splashScreen';
 
 type HudElements = {
@@ -93,6 +96,7 @@ export function createGameApp(root: HTMLElement): void {
   let pausedForSettings = false;
   let adminUnlockClicks = 0;
   let settingsGamepadSync: (() => void) | null = null;
+  let isStartingGame = false;
 
   root.innerHTML = renderShell();
 
@@ -212,7 +216,12 @@ export function createGameApp(root: HTMLElement): void {
     settingsGamepadSync = null;
   };
 
-  const startGame = (): void => {
+  const startGame = async (): Promise<void> => {
+    if (isStartingGame) {
+      return;
+    }
+
+    isStartingGame = true;
     const size = getPlaySize(preferredOrientation);
     const viewScale = VIEW_ZOOM_SCALE[preferredZoom];
     clearSettingsGamepadSync();
@@ -223,7 +232,7 @@ export function createGameApp(root: HTMLElement): void {
       isWeaponUnlocked(selectedHero.id, loadout.startingWeaponId)
         ? loadout.startingWeaponId
         : selectedHero.startingWeaponId;
-    game = new Game({
+    const gameConfig = {
       width: size.width / viewScale,
       height: size.height / viewScale,
       hero: selectedHero,
@@ -233,14 +242,33 @@ export function createGameApp(root: HTMLElement): void {
       startingWeaponId,
       developerMode,
       skipToBoss: developerMode ? (loadout.skipToBoss ?? undefined) : undefined,
-    });
-    runSaved = false;
-    lastTime = performance.now();
-    syncHudHero(selectedHero);
-    setHudVisible(true);
-    setPlayingChrome(true);
-    overlay.hidden = true;
-    resize();
+    };
+    const stageDefinition = getStageById(loadout.stageId);
+    overlay.hidden = false;
+    overlay.classList.remove('overlay--splash');
+    const loadingScreen = mountLoadingScreen(overlay, stageDefinition);
+
+    try {
+      await preloadImagesWithProgress(
+        getRunAssetSources(gameConfig),
+        (loaded, total) => {
+          loadingScreen.setProgress(loaded, total);
+        },
+        [stageDefinition.backgroundImageSrc],
+      );
+
+      game = new Game(gameConfig);
+      runSaved = false;
+      lastTime = performance.now();
+      syncHudHero(selectedHero);
+      setHudVisible(true);
+      setPlayingChrome(true);
+      loadingScreen.destroy();
+      overlay.hidden = true;
+      resize();
+    } finally {
+      isStartingGame = false;
+    }
   };
 
   const showLoadoutScreen = (): void => {
@@ -319,7 +347,9 @@ export function createGameApp(root: HTMLElement): void {
       ?.addEventListener('click', closeSettingsMenu);
     overlay
       .querySelector<HTMLButtonElement>('[data-settings-restart]')
-      ?.addEventListener('click', startGame);
+      ?.addEventListener('click', () => {
+        void startGame();
+      });
     overlay
       .querySelector<HTMLButtonElement>('[data-settings-leave]')
       ?.addEventListener('click', returnToMenu);
@@ -432,7 +462,7 @@ export function createGameApp(root: HTMLElement): void {
 
   const startBossFight = (bossId: BossId): void => {
     loadout = { ...loadout, skipToBoss: bossId };
-    startGame();
+    void startGame();
   };
 
   const showAdminMenu = (): void => {
@@ -615,7 +645,9 @@ export function createGameApp(root: HTMLElement): void {
       `;
       overlay
         .querySelector<HTMLButtonElement>('[data-start]')
-        ?.addEventListener('click', startGame);
+        ?.addEventListener('click', () => {
+        void startGame();
+      });
       overlay
         .querySelector<HTMLButtonElement>('[data-menu]')
         ?.addEventListener('click', returnToMenu);
@@ -636,7 +668,9 @@ export function createGameApp(root: HTMLElement): void {
     `;
     overlay
       .querySelector<HTMLButtonElement>('[data-retry]')
-      ?.addEventListener('click', startGame);
+      ?.addEventListener('click', () => {
+        void startGame();
+      });
     overlay
       .querySelector<HTMLButtonElement>('[data-menu]')
       ?.addEventListener('click', returnToMenu);
@@ -651,7 +685,9 @@ export function createGameApp(root: HTMLElement): void {
 
     container
       .querySelector<HTMLButtonElement>('[data-loadout-start]')
-      ?.addEventListener('click', startGame);
+      ?.addEventListener('click', () => {
+        void startGame();
+      });
 
     for (const button of container.querySelectorAll<HTMLButtonElement>(
       '[data-stage]',
@@ -671,7 +707,7 @@ export function createGameApp(root: HTMLElement): void {
     )) {
       button.addEventListener('click', () => {
         const minutes = Number(button.dataset.duration) as RunDurationMinutes;
-        if (![3, 6, 9, 12].includes(minutes)) {
+        if (![2, 4, 6, 8].includes(minutes)) {
           return;
         }
         loadout = { ...loadout, durationMinutes: minutes };

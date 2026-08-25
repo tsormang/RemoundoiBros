@@ -158,6 +158,18 @@ export function getEnemyDefinition(id: EnemyId): EnemyDefinition {
   return enemies[id];
 }
 
+export function getEnemySpriteSources(id: EnemyId): string[] {
+  const enemy = enemies[id];
+  return [
+    ...enemy.sprites.walk,
+    ...enemy.sprites.hit,
+    ...(enemy.sprites.tell ?? []),
+    ...(enemy.sprites.attack ?? []),
+    ...(enemy.sprites.tentacle ?? []),
+    ...(enemy.sprites.tentacleTip ? [enemy.sprites.tentacleTip] : []),
+  ];
+}
+
 export function allEnemySpriteSources(): string[] {
   return Object.values(enemies).flatMap((enemy) => [
     ...enemy.sprites.walk,

@@ -916,6 +916,45 @@ export function canEvolve(
   return (passives[definition.evolutionPassiveId] ?? 0) >= MAX_PASSIVE_LEVEL;
 }
 
+export function getWeaponSpriteSources(id: WeaponId): string[] {
+  const definition = getWeaponDefinition(id);
+  const sprites = definition.sprites;
+  const sources = new Set<string>([sprites.icon]);
+
+  for (const list of [
+    sprites.projectile,
+    sprites.trail,
+    sprites.hit,
+    sprites.slash,
+    sprites.muzzle,
+    sprites.pool,
+    sprites.poolNest,
+    sprites.explosion,
+    sprites.storm,
+    sprites.orbitItems,
+    sprites.puff,
+  ]) {
+    list?.forEach((src) => sources.add(src));
+  }
+
+  for (const src of [
+    sprites.poolNestCenter,
+    sprites.slowIndicator,
+    sprites.orbitHit,
+    sprites.orbitEvolved,
+    sprites.puffAccent,
+    sprites.bounceSpark,
+    sprites.splitMarble,
+    sprites.evolvedProjectile,
+  ]) {
+    if (src) {
+      sources.add(src);
+    }
+  }
+
+  return [...sources];
+}
+
 export function allWeaponSpriteSources(): string[] {
   const sources = new Set<string>();
 

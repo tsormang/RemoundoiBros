@@ -1,4 +1,4 @@
-import { kidsRoomFloor } from './backgrounds';
+import { kidsRoomBackground, zagkaBeachBackground } from './backgrounds';
 import type { BlockerId, EnemyId, StageId } from './types';
 
 export type StageDefinition = {
@@ -7,8 +7,12 @@ export type StageDefinition = {
   description: string;
   thumbnailSrc: string;
   thumbnailFallbackColor: string;
-  floorTileSrc: string;
-  floorFallbackColor: string;
+  backgroundImageSrc: string;
+  backgroundFallbackColor: string;
+  /** When set, room keeps this width/height ratio (e.g. 16/9). */
+  backgroundAspectRatio?: number;
+  /** Fraction of the shorter room side reserved as edge padding (fences, etc.). */
+  edgeInsetRatio?: number;
   blockerIds: BlockerId[];
   smallEnemyId: EnemyId;
   heavyEnemyId: EnemyId;
@@ -22,8 +26,10 @@ export const stages: StageDefinition[] = [
     description: 'Το παιδικό δωμάτιο με παιχνίδια και εμπόδια.',
     thumbnailSrc: '/assets/ui/stages/stage_koroni_kids_room_thumb.png',
     thumbnailFallbackColor: '#c4a882',
-    floorTileSrc: kidsRoomFloor.tileSrc,
-    floorFallbackColor: kidsRoomFloor.fallbackColor,
+    backgroundImageSrc: kidsRoomBackground.imageSrc,
+    backgroundFallbackColor: kidsRoomBackground.fallbackColor,
+    backgroundAspectRatio: kidsRoomBackground.aspectRatio,
+    edgeInsetRatio: kidsRoomBackground.edgeInsetRatio,
     blockerIds: [
       'toy-blocks-pile',
       'toy-chest-open',
@@ -42,8 +48,10 @@ export const stages: StageDefinition[] = [
     description: 'Άμμος, φύκια και καλοκαιρινά εμπόδια.',
     thumbnailSrc: '/assets/ui/stages/stage_zagka_beach_thumb.png',
     thumbnailFallbackColor: '#e8d5a3',
-    floorTileSrc: '/assets/backgrounds/background_zagka_beach_floor_tile.png',
-    floorFallbackColor: '#e8d5a3',
+    backgroundImageSrc: zagkaBeachBackground.imageSrc,
+    backgroundFallbackColor: zagkaBeachBackground.fallbackColor,
+    backgroundAspectRatio: zagkaBeachBackground.aspectRatio,
+    edgeInsetRatio: zagkaBeachBackground.edgeInsetRatio,
     blockerIds: [
       'beach-seaweed-green',
       'beach-seaweed-teal',
@@ -60,13 +68,13 @@ export const stages: StageDefinition[] = [
 export const DEFAULT_STAGE_ID: StageId = 'koroni-kids-room';
 
 export const RUN_DURATION_OPTIONS: Array<{
-  minutes: 3 | 6 | 9 | 12;
+  minutes: 2 | 4 | 6 | 8;
   label: string;
 }> = [
-  { minutes: 3, label: '3 λεπτά' },
+  { minutes: 2, label: '2 λεπτά' },
+  { minutes: 4, label: '4 λεπτά' },
   { minutes: 6, label: '6 λεπτά' },
-  { minutes: 9, label: '9 λεπτά' },
-  { minutes: 12, label: '12 λεπτά' },
+  { minutes: 8, label: '8 λεπτά' },
 ];
 
 export function getStageById(id: StageId): StageDefinition {
@@ -76,6 +84,6 @@ export function getStageById(id: StageId): StageDefinition {
 export function allStageSpriteSources(): string[] {
   return stages.flatMap((stage) => [
     stage.thumbnailSrc,
-    stage.floorTileSrc,
+    stage.backgroundImageSrc,
   ]);
 }

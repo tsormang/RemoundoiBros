@@ -1,4 +1,9 @@
-import type { BlockerDefinition, BlockerId, Rect } from './types';
+import type {
+  BlockerDefinition,
+  BlockerId,
+  BlockerSize,
+  Rect,
+} from './types';
 
 const kidsBase = '/assets/sprites/props/kids_toys_blockers';
 const beachBase = '/assets/sprites/props/beach_blockers';
@@ -6,6 +11,23 @@ const KIDS_FRAME_SIZE = 128;
 const KIDS_DRAW_SIZE = 96;
 const BEACH_FRAME_SIZE = 384;
 const BEACH_DRAW_SIZE = 112;
+
+/** Current definition drawSize is the small baseline. */
+export const BLOCKER_SIZE_SCALE: Record<BlockerSize, number> = {
+  small: 1,
+  medium: 1.45,
+  large: 1.9,
+};
+
+const BLOCKER_SIZES: BlockerSize[] = ['small', 'medium', 'large'];
+
+export function randomBlockerSize(): BlockerSize {
+  return BLOCKER_SIZES[Math.floor(Math.random() * BLOCKER_SIZES.length)];
+}
+
+export function getBlockerSizeScale(size: BlockerSize): number {
+  return BLOCKER_SIZE_SCALE[size];
+}
 
 function scaledBox(
   x: number,
@@ -119,14 +141,17 @@ export function allBlockerSpriteSources(): string[] {
 export function getBlockerWorldRect(
   position: { x: number; y: number },
   definition: BlockerDefinition,
+  size: BlockerSize = 'small',
 ): Rect {
-  const left = position.x - definition.drawSize / 2;
-  const top = position.y - definition.drawSize / 2;
+  const scale = getBlockerSizeScale(size);
+  const drawSize = definition.drawSize * scale;
+  const left = position.x - drawSize / 2;
+  const top = position.y - drawSize / 2;
 
   return {
-    x: left + definition.collision.x,
-    y: top + definition.collision.y,
-    width: definition.collision.width,
-    height: definition.collision.height,
+    x: left + definition.collision.x * scale,
+    y: top + definition.collision.y * scale,
+    width: definition.collision.width * scale,
+    height: definition.collision.height * scale,
   };
 }

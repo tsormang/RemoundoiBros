@@ -1,23 +1,24 @@
 import { getAnimationFrame } from '../render/animation';
-import { loadImage, preloadImages } from '../render/assets';
+import { loadImage } from '../render/assets';
 import { drawSprite } from '../render/spriteRenderer';
 import {
-  allBossSpriteSources,
   createBossEntity,
   getBossDefinition,
+  getBossSpriteSources,
   pickRandomBoss,
 } from './bosses';
 import {
-  allBlockerSpriteSources,
   getBlockerDefinition,
+  getBlockerSizeScale,
   getBlockerWorldRect,
+  randomBlockerSize,
 } from './blockers';
 import {
   getDifficultyModifiers,
   type DifficultyId,
   type DifficultyModifiers,
 } from './difficulty';
-import { allEnemySpriteSources, getEnemyDefinition } from './enemies';
+import { getEnemyDefinition, getEnemySpriteSources } from './enemies';
 import {
   allPickupSpriteSources,
   getPickupDefinition,
@@ -37,7 +38,7 @@ import {
   reflectVector,
   rotateVector,
 } from './math';
-import { allStageSpriteSources, getStageById, type StageDefinition } from './stages';
+import { getStageById, type StageDefinition } from './stages';
 import type {
   Blocker,
   Boss,
@@ -69,10 +70,10 @@ import type {
 import { loadHeroUnlocks, unlockRandomWeaponForHero } from './unlocks';
 import { drawAttackUpgradeChoices } from './upgrades';
 import {
-  allWeaponSpriteSources,
   canEvolve,
   createWeaponInstance,
   getWeaponDefinition,
+  getWeaponSpriteSources,
   getWeaponStats,
   MAX_WEAPON_LEVEL,
   type BadFoodStats,
@@ -91,7 +92,7 @@ import {
   weaponDefinitions,
 } from './weapons';
 
-type GameConfig = {
+export type GameConfig = {
   width: number;
   height: number;
   hero: HeroDefinition;
@@ -102,6 +103,38 @@ type GameConfig = {
   developerMode?: boolean;
   skipToBoss?: BossId;
 };
+
+const ROOM_SIZE_MULTIPLIER = 2;
+
+function computeRoomSize(
+  viewportWidth: number,
+  viewportHeight: number,
+  aspectRatio?: number,
+): { width: number; height: number } {
+  // Size from a landscape reference so portrait/landscape switches
+  // only change the camera window, not the room.
+  const landscapeWidth = Math.max(viewportWidth, viewportHeight);
+  const landscapeHeight = Math.min(viewportWidth, viewportHeight);
+  const targetWidth = landscapeWidth * ROOM_SIZE_MULTIPLIER;
+  const targetHeight = landscapeHeight * ROOM_SIZE_MULTIPLIER;
+
+  if (!aspectRatio || aspectRatio <= 0) {
+    return { width: targetWidth, height: targetHeight };
+  }
+
+  // Cover both 2× landscape targets while keeping the art aspect ratio.
+  if (targetWidth / targetHeight >= aspectRatio) {
+    return {
+      width: targetWidth,
+      height: targetWidth / aspectRatio,
+    };
+  }
+
+  return {
+    width: targetHeight * aspectRatio,
+    height: targetHeight,
+  };
+}
 
 const PLAYER_RADIUS = 18;
 const ARENA_PADDING = 28;
@@ -171,7 +204,9 @@ export class Game {
   private readonly unlockedWeaponIds: Set<WeaponId>;
   private readonly developerMode: boolean;
   private readonly skipToBoss: BossId | null;
-  private readonly world = { width: 0, height: 0 };
+  private readonly viewport = { width: 0, height: 0 };
+  private readonly room = { width: 0, height: 0 };
+  private readonly camera = { x: 0, y: 0 };
   private readonly player = {
     position: { x: 0, y: 0 },
     radius: PLAYER_RADIUS,
@@ -228,7 +263,7 @@ export class Game {
     this.hero = config.hero;
     this.difficulty = getDifficultyModifiers(config.difficulty ?? 'normal');
     this.stage = getStageById(config.stageId ?? 'koroni-kids-room');
-    this.durationSeconds = config.durationSeconds ?? 180;
+    this.durationSeconds = config.durationSeconds ?? 120;
     this.startingWeaponId =
       config.startingWeaponId ?? this.hero.startingWeaponId;
     this.developerMode = Boolean(config.developerMode);
@@ -238,8 +273,15 @@ export class Game {
         ? weaponDefinitions.map((weapon) => weapon.id)
         : loadHeroUnlocks(this.hero.id),
     );
-    this.preloadSprites();
-    this.resize(config.width, config.height);
+    this.viewport.width = config.width;
+    this.viewport.height = config.height;
+    const roomSize = computeRoomSize(
+      config.width,
+      config.height,
+      this.stage.backgroundAspectRatio,
+    );
+    this.room.width = roomSize.width;
+    this.room.height = roomSize.height;
     this.reset();
     if (this.skipToBoss) {
       this.enterBossPhase(this.skipToBoss);
@@ -247,25 +289,28 @@ export class Game {
   }
 
   resize(width: number, height: number): void {
-    this.world.width = width;
-    this.world.height = height;
+    this.viewport.width = width;
+    this.viewport.height = height;
+    const padding = this.getArenaPadding();
     this.player.position.x = clamp(
-      this.player.position.x || width / 2,
-      ARENA_PADDING,
-      width - ARENA_PADDING,
+      this.player.position.x || this.room.width / 2,
+      padding,
+      this.room.width - padding,
     );
     this.player.position.y = clamp(
-      this.player.position.y || height / 2,
-      ARENA_PADDING,
-      height - ARENA_PADDING,
+      this.player.position.y || this.room.height / 2,
+      padding,
+      this.room.height - padding,
     );
+    this.updateCamera();
   }
 
   reset(): void {
     this.player.position = {
-      x: this.world.width / 2,
-      y: this.world.height / 2,
+      x: this.room.width / 2,
+      y: this.room.height / 2,
     };
+    this.updateCamera();
     this.player.maxHp = this.hero.maxHp;
     this.player.hp = this.hero.maxHp;
     this.player.speed = this.hero.speed;
@@ -376,6 +421,8 @@ export class Game {
   }
 
   draw(ctx: CanvasRenderingContext2D): void {
+    ctx.save();
+    ctx.translate(-this.camera.x, -this.camera.y);
     this.drawBackground(ctx);
     this.drawBlockers(ctx);
     this.drawWebPools(ctx);
@@ -397,6 +444,7 @@ export class Game {
     this.drawBoss(ctx);
     this.drawPlayer(ctx);
     this.drawBombFlash(ctx);
+    ctx.restore();
   }
 
   chooseUpgrade(upgradeId: string): void {
@@ -473,15 +521,16 @@ export class Game {
       this.player.animTime = 0;
     }
 
+    const padding = this.getArenaPadding();
     const nextX = clamp(
       this.player.position.x + move.x * this.player.speed * deltaSeconds,
-      ARENA_PADDING,
-      this.world.width - ARENA_PADDING,
+      padding,
+      this.room.width - padding,
     );
     const nextY = clamp(
       this.player.position.y + move.y * this.player.speed * deltaSeconds,
-      ARENA_PADDING,
-      this.world.height - ARENA_PADDING,
+      padding,
+      this.room.height - padding,
     );
 
     this.player.position = this.moveWithBlockers(
@@ -489,6 +538,34 @@ export class Game {
       { x: nextX, y: nextY },
       this.player.radius,
     );
+    this.updateCamera();
+  }
+
+  private updateCamera(): void {
+    const maxX = Math.max(0, this.room.width - this.viewport.width);
+    const maxY = Math.max(0, this.room.height - this.viewport.height);
+    this.camera.x = clamp(
+      this.player.position.x - this.viewport.width / 2,
+      0,
+      maxX,
+    );
+    this.camera.y = clamp(
+      this.player.position.y - this.viewport.height / 2,
+      0,
+      maxY,
+    );
+  }
+
+  private getArenaPadding(): number {
+    const insetRatio = this.stage.edgeInsetRatio;
+    if (insetRatio && insetRatio > 0) {
+      return Math.max(
+        ARENA_PADDING,
+        Math.min(this.room.width, this.room.height) * insetRatio,
+      );
+    }
+
+    return ARENA_PADDING;
   }
 
   private updateEnemies(deltaSeconds: number): void {
@@ -733,15 +810,16 @@ export class Game {
   }
 
   private getSquidTentacleMaxLength(origin: Vec2, axisDirection: Vec2): number {
+    const padding = this.getArenaPadding();
     if (Math.abs(axisDirection.x) > 0.5) {
       return axisDirection.x > 0
-        ? this.world.width - ARENA_PADDING - origin.x
-        : origin.x - ARENA_PADDING;
+        ? this.room.width - padding - origin.x
+        : origin.x - padding;
     }
 
     return axisDirection.y > 0
-      ? this.world.height - ARENA_PADDING - origin.y
-      : origin.y - ARENA_PADDING;
+      ? this.room.height - padding - origin.y
+      : origin.y - padding;
   }
 
   private spawnSquidTentacle(enemy: Enemy): void {
@@ -2499,7 +2577,7 @@ export class Game {
         width: 120,
         length: 48,
         traveled: 0,
-        maxTravel: Math.max(this.world.width, this.world.height) + 200,
+        maxTravel: Math.max(this.room.width, this.room.height) + 200,
         damage: boss.damage * 1.2,
         ttl: 2.5,
         animTime: 0,
@@ -2749,18 +2827,18 @@ export class Game {
 
   private spawnPositionForSide(side: number): Vec2 {
     if (side === 0) {
-      return { x: randomRange(0, this.world.width), y: -32 };
+      return { x: randomRange(0, this.room.width), y: -32 };
     }
 
     if (side === 1) {
-      return { x: this.world.width + 32, y: randomRange(0, this.world.height) };
+      return { x: this.room.width + 32, y: randomRange(0, this.room.height) };
     }
 
     if (side === 2) {
-      return { x: randomRange(0, this.world.width), y: this.world.height + 32 };
+      return { x: randomRange(0, this.room.width), y: this.room.height + 32 };
     }
 
-    return { x: -32, y: randomRange(0, this.world.height) };
+    return { x: -32, y: randomRange(0, this.room.height) };
   }
 
   private findClosestEnemy(): Enemy | null {
@@ -2803,44 +2881,35 @@ export class Game {
   }
 
   private drawBackground(ctx: CanvasRenderingContext2D): void {
-    const tile = loadImage(this.stage.floorTileSrc);
+    const background = loadImage(this.stage.backgroundImageSrc);
 
-    if (tile.complete && tile.naturalWidth > 0) {
-      const pattern = ctx.createPattern(tile, 'repeat');
-
-      if (pattern) {
-        ctx.save();
-        ctx.imageSmoothingEnabled = false;
-        ctx.fillStyle = pattern;
-        ctx.fillRect(0, 0, this.world.width, this.world.height);
-        ctx.restore();
-
-        ctx.fillStyle = 'rgba(24, 20, 16, 0.22)';
-        ctx.fillRect(0, 0, this.world.width, this.world.height);
-        return;
-      }
+    if (background.complete && background.naturalWidth > 0) {
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(background, 0, 0, this.room.width, this.room.height);
+      return;
     }
 
-    ctx.fillStyle = this.stage.floorFallbackColor;
-    ctx.fillRect(0, 0, this.world.width, this.world.height);
+    ctx.fillStyle = this.stage.backgroundFallbackColor;
+    ctx.fillRect(0, 0, this.room.width, this.room.height);
   }
 
   private drawBlockers(ctx: CanvasRenderingContext2D): void {
     for (const blocker of this.blockers) {
       const definition = getBlockerDefinition(blocker.kind);
+      const drawSize = definition.drawSize * getBlockerSizeScale(blocker.size);
       const drew = drawSprite(ctx, definition.src, {
         x: blocker.position.x,
         y: blocker.position.y,
-        size: definition.drawSize,
+        size: drawSize,
       });
 
       if (!drew) {
         ctx.fillStyle = definition.fallbackColor ?? '#888';
         ctx.fillRect(
-          blocker.position.x - definition.drawSize / 2,
-          blocker.position.y - definition.drawSize / 2,
-          definition.drawSize,
-          definition.drawSize,
+          blocker.position.x - drawSize / 2,
+          blocker.position.y - drawSize / 2,
+          drawSize,
+          drawSize,
         );
       }
     }
@@ -2899,60 +2968,30 @@ export class Game {
     return sprites.idle[0] ?? sprites.run[0] ?? '';
   }
 
-  private preloadSprites(): void {
-    const heroSprites = this.hero.sprites;
-    const sources = [
-      ...allStageSpriteSources(),
-      ...allBlockerSpriteSources(),
-      ...allEnemySpriteSources(),
-      ...allBossSpriteSources(),
-      ...BOSS_GRANDPA_PAN_FRAMES,
-      ...BOSS_GRANDPA_PAN_BURST_FRAMES,
-      BOSS_GRANDPA_PAN_SPLAT_SRC,
-      ...BOSS_GRANDPA_SCOOTER_FRAMES,
-      BOSS_GRANDPA_SCOOTER_SPARK_SRC,
-      ...BOSS_SISSY_WAVE_FRAMES,
-      ...BOSS_SISSY_MOUSE_FRAMES,
-      BOSS_SISSY_MOUSE_PUFF_SRC,
-      ...allPickupSpriteSources(),
-      ...allWeaponSpriteSources(),
-    ];
-
-    if (heroSprites) {
-      sources.push(
-        ...heroSprites.idle,
-        ...heroSprites.run,
-        ...heroSprites.hurt,
-      );
-    }
-
-    void preloadImages(sources);
-  }
-
   private spawnBlockers(): void {
-    if (this.world.width <= 0 || this.world.height <= 0) {
+    if (this.room.width <= 0 || this.room.height <= 0) {
       return;
     }
 
-    const count = randomInt(2, 4);
+    const count = randomInt(4, 8);
     const available = [...this.stage.blockerIds];
     const spawnCenter = { ...this.player.position };
 
     for (let placed = 0; placed < count && available.length > 0; placed += 1) {
-      const kindIndex = Math.floor(Math.random() * available.length);
-      const kind = available.splice(kindIndex, 1)[0];
+      const kind = available[Math.floor(Math.random() * available.length)];
       const definition = getBlockerDefinition(kind);
+      const size = randomBlockerSize();
       let placedBlocker: Blocker | null = null;
 
       for (let attempt = 0; attempt < 40; attempt += 1) {
         const position = {
           x: randomRange(
             BLOCKER_SPAWN_PADDING,
-            this.world.width - BLOCKER_SPAWN_PADDING,
+            this.room.width - BLOCKER_SPAWN_PADDING,
           ),
           y: randomRange(
             BLOCKER_SPAWN_PADDING,
-            this.world.height - BLOCKER_SPAWN_PADDING,
+            this.room.height - BLOCKER_SPAWN_PADDING,
           ),
         };
 
@@ -2963,13 +3002,14 @@ export class Game {
           continue;
         }
 
-        const candidateRect = getBlockerWorldRect(position, definition);
+        const candidateRect = getBlockerWorldRect(position, definition, size);
         const overlaps = this.blockers.some((blocker) =>
           rectsOverlap(
             candidateRect,
             getBlockerWorldRect(
               blocker.position,
               getBlockerDefinition(blocker.kind),
+              blocker.size,
             ),
             BLOCKER_OVERLAP_PADDING,
           ),
@@ -2983,6 +3023,7 @@ export class Game {
           id: this.nextEntityId++,
           kind,
           position,
+          size,
         };
         break;
       }
@@ -3019,6 +3060,7 @@ export class Game {
         getBlockerWorldRect(
           blocker.position,
           getBlockerDefinition(blocker.kind),
+          blocker.size,
         ),
       ),
     );
@@ -3742,4 +3784,84 @@ export class Game {
     ctx.stroke();
     ctx.restore();
   }
+}
+
+export function getRunAssetSources(config: GameConfig): string[] {
+  const hero = config.hero;
+  const stage = getStageById(config.stageId ?? 'koroni-kids-room');
+  const startingWeaponId = config.startingWeaponId ?? hero.startingWeaponId;
+  const developerMode = Boolean(config.developerMode);
+  const unlockedWeaponIds = new Set(
+    developerMode
+      ? weaponDefinitions.map((weapon) => weapon.id)
+      : loadHeroUnlocks(hero.id),
+  );
+  unlockedWeaponIds.add(startingWeaponId);
+
+  const sources = new Set<string>([
+    stage.thumbnailSrc,
+    stage.backgroundImageSrc,
+    ...allPickupSpriteSources(),
+  ]);
+
+  for (const blockerId of stage.blockerIds) {
+    sources.add(getBlockerDefinition(blockerId).src);
+  }
+
+  for (const enemyId of [
+    stage.smallEnemyId,
+    stage.heavyEnemyId,
+    ...(stage.specialEnemyId ? [stage.specialEnemyId] : []),
+  ]) {
+    for (const src of getEnemySpriteSources(enemyId)) {
+      sources.add(src);
+    }
+  }
+
+  for (const weaponId of unlockedWeaponIds) {
+    for (const src of getWeaponSpriteSources(weaponId)) {
+      sources.add(src);
+    }
+  }
+
+  const heroSprites = hero.sprites;
+  if (heroSprites) {
+    for (const src of [
+      ...heroSprites.idle,
+      ...heroSprites.run,
+      ...heroSprites.hurt,
+    ]) {
+      sources.add(src);
+    }
+  }
+
+  if (config.skipToBoss) {
+    for (const src of getBossSpriteSources(config.skipToBoss)) {
+      sources.add(src);
+    }
+
+    if (config.skipToBoss === 'grandpa') {
+      for (const src of [
+        ...BOSS_GRANDPA_PAN_FRAMES,
+        ...BOSS_GRANDPA_PAN_BURST_FRAMES,
+        BOSS_GRANDPA_PAN_SPLAT_SRC,
+        ...BOSS_GRANDPA_SCOOTER_FRAMES,
+        BOSS_GRANDPA_SCOOTER_SPARK_SRC,
+      ]) {
+        sources.add(src);
+      }
+    }
+
+    if (config.skipToBoss === 'sissy') {
+      for (const src of [
+        ...BOSS_SISSY_WAVE_FRAMES,
+        ...BOSS_SISSY_MOUSE_FRAMES,
+        BOSS_SISSY_MOUSE_PUFF_SRC,
+      ]) {
+        sources.add(src);
+      }
+    }
+  }
+
+  return [...sources];
 }
