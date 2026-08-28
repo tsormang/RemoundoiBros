@@ -27,8 +27,16 @@ export function getSupabaseClient(): SupabaseClient {
   return client;
 }
 
+/** Set VITE_SUPABASE_ENABLED=true to turn cloud saves back on. */
+export function isSupabaseEnabled(): boolean {
+  return import.meta.env.VITE_SUPABASE_ENABLED === 'true';
+}
+
 export function isSupabaseConfigured(): boolean {
-  return Boolean(
-    import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY,
+  return (
+    isSupabaseEnabled() &&
+    Boolean(
+      import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY,
+    )
   );
 }
