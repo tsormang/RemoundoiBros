@@ -259,6 +259,7 @@ export class Game {
   private insomniaDropTimer = 0;
   private bossPhase = false;
   private victory = false;
+  private defeatedBossName: string | null = null;
   private newlyUnlockedWeaponId: WeaponId | null = null;
   private xp = 0;
   private xpToNext = 5;
@@ -356,6 +357,7 @@ export class Game {
     this.insomniaDropTimer = 0;
     this.bossPhase = false;
     this.victory = false;
+    this.defeatedBossName = null;
     this.newlyUnlockedWeaponId = null;
     this.xp = 0;
     this.xpToNext = 5;
@@ -490,7 +492,10 @@ export class Game {
       remainingSeconds,
       durationSeconds: this.durationSeconds,
       bossPhase: this.bossPhase,
-      bossName: this.boss ? getBossDefinition(this.boss.kind).name : null,
+      bossName:
+        this.boss
+          ? getBossDefinition(this.boss.kind).name
+          : this.defeatedBossName,
       victory: this.victory,
       running: this.running,
       pausedForUpgrade: this.pendingUpgrades.length > 0,
@@ -2770,6 +2775,7 @@ export class Game {
       return;
     }
 
+    this.defeatedBossName = getBossDefinition(this.boss.kind).name;
     this.kills += 1;
     this.gold += 25;
     this.boss = null;
@@ -2779,6 +2785,7 @@ export class Game {
     this.sonicWaves = [];
     this.victory = true;
     this.running = false;
+    this.pendingUpgrades = [];
     if (this.developerMode) {
       return;
     }

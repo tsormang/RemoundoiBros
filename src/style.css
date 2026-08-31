@@ -797,6 +797,74 @@
   color: var(--gold);
 }
 
+.victory-kicker {
+  margin: 0 0 6px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold);
+  text-align: center;
+}
+
+.victory-stats {
+  margin-top: 8px;
+  text-align: center;
+}
+
+.victory-unlock-reveal {
+  margin-top: 18px;
+}
+
+.victory-unlock-reveal__label {
+  margin: 0 0 10px;
+  text-align: center;
+  font-size: 0.92rem;
+  color: var(--text);
+}
+
+.victory-unlock-reveal__card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 14px;
+  align-items: center;
+  padding: 14px;
+  border: 2px solid rgba(244, 201, 93, 0.45);
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 18% 22%, rgba(244, 201, 93, 0.16), transparent 42%),
+    rgba(16, 19, 24, 0.72);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.28);
+}
+
+.victory-unlock-reveal__icon {
+  width: 96px;
+  height: 96px;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.35));
+}
+
+.victory-unlock-reveal__body {
+  display: grid;
+  gap: 6px;
+}
+
+.victory-unlock-reveal__body strong {
+  font-size: 1.05rem;
+  color: var(--text);
+}
+
+.victory-unlock-reveal__body span {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.victory-unlock-reveal__complete {
+  margin: 16px 0 0;
+  text-align: center;
+  color: var(--text);
+}
+
 .victory-unlock {
   margin-top: 12px;
   text-align: center;

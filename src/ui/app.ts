@@ -585,6 +585,19 @@ export function createGameApp(root: HTMLElement): void {
       return;
     }
 
+    if (snapshot.victory) {
+      overlay.innerHTML = renderVictoryScreen(snapshot);
+      overlay
+        .querySelector<HTMLButtonElement>('[data-start]')
+        ?.addEventListener('click', () => {
+          void startGame();
+        });
+      overlay
+        .querySelector<HTMLButtonElement>('[data-menu]')
+        ?.addEventListener('click', returnToMenu);
+      return;
+    }
+
     if (snapshot.pausedForUpgrade) {
       overlay.innerHTML = `
         <section class="dialog" aria-modal="true">
@@ -620,37 +633,6 @@ export function createGameApp(root: HTMLElement): void {
           overlay.hidden = true;
         });
       }
-      return;
-    }
-
-    if (snapshot.victory) {
-      const unlockNote =
-        snapshot.developerMode || snapshot.skipRunSave
-          ? ''
-          : snapshot.newlyUnlockedWeaponId
-            ? `<p class="victory-unlock">Ξεκλείδωσες: <strong>${getWeaponDefinition(snapshot.newlyUnlockedWeaponId).title}</strong></p>`
-            : `<p class="victory-unlock">Έχεις ξεκλειδώσει όλες τις νέες επιθέσεις!</p>`;
-
-      overlay.innerHTML = `
-        <section class="dialog dialog--victory" aria-modal="true">
-          <h2>Νίκη!</h2>
-          <p>Ο ${snapshot.hero.name} νίκησε ${snapshot.bossName ?? 'τον boss'}!</p>
-          <p>Επίπεδο ${snapshot.level}, ${snapshot.kills} εξουδετερώσεις, ${snapshot.gold} χρυσός.</p>
-          ${unlockNote}
-          <div class="dialog-actions">
-            <button class="primary-button" type="button" data-start>Ξανά</button>
-            <button class="secondary-button" type="button" data-menu>Αλλαγή ήρωα</button>
-          </div>
-        </section>
-      `;
-      overlay
-        .querySelector<HTMLButtonElement>('[data-start]')
-        ?.addEventListener('click', () => {
-        void startGame();
-      });
-      overlay
-        .querySelector<HTMLButtonElement>('[data-menu]')
-        ?.addEventListener('click', returnToMenu);
       return;
     }
 
@@ -793,23 +775,19 @@ export function createGameApp(root: HTMLElement): void {
         return;
       }
 
-      if (snapshot.pausedForUpgrade && overlay.hidden) {
-        showOverlay(snapshot);
-      }
-
-      if (snapshot.gameOver && !runSaved) {
-        runSaved = true;
-        if (!snapshot.skipRunSave) {
-          void saveRunSummary(game.getRunSummary());
-        }
-        showOverlay(snapshot);
-      }
-
       if (snapshot.victory && !runSaved) {
         runSaved = true;
         if (!snapshot.skipRunSave) {
           void saveRunSummary(game.getRunSummary());
         }
+        showOverlay(snapshot);
+      } else if (snapshot.gameOver && !runSaved) {
+        runSaved = true;
+        if (!snapshot.skipRunSave) {
+          void saveRunSummary(game.getRunSummary());
+        }
+        showOverlay(snapshot);
+      } else if (snapshot.pausedForUpgrade && overlay.hidden) {
         showOverlay(snapshot);
       }
     }
@@ -1091,6 +1069,57 @@ function renderStageCard(stage: StageDefinition, selected: boolean): string {
         <span>${stage.description}</span>
       </span>
     </button>
+  `;
+}
+
+function renderVictoryScreen(snapshot: GameSnapshot): string {
+  const showUnlock =
+    !snapshot.developerMode &&
+    !snapshot.skipRunSave;
+  const unlockedWeapon = snapshot.newlyUnlockedWeaponId
+    ? getWeaponDefinition(snapshot.newlyUnlockedWeaponId)
+    : null;
+  const unlockSection = !showUnlock
+    ? ''
+    : unlockedWeapon
+      ? `
+          <div class="victory-unlock-reveal" aria-label="Νέα επίθεση">
+            <p class="victory-unlock-reveal__label">Ξεκλείδωσες νέα επίθεση</p>
+            <div class="victory-unlock-reveal__card">
+              <img
+                class="victory-unlock-reveal__icon"
+                src="${unlockedWeapon.sprites.icon}"
+                alt=""
+                width="96"
+                height="96"
+              />
+              <div class="victory-unlock-reveal__body">
+                <strong>${unlockedWeapon.title}</strong>
+                <span>${unlockedWeapon.description}</span>
+              </div>
+            </div>
+          </div>
+        `
+      : `
+          <p class="victory-unlock-reveal__complete">
+            Έχεις ξεκλειδώσει όλες τις νέες επιθέσεις!
+          </p>
+        `;
+
+  return `
+    <section class="dialog dialog--victory" aria-modal="true">
+      <p class="victory-kicker">Συγχαρητήρια!</p>
+      <h2>Νίκη!</h2>
+      <p>Ο ${snapshot.hero.name} νίκησε ${snapshot.bossName ?? 'τον boss'}!</p>
+      <p class="victory-stats">
+        Επίπεδο ${snapshot.level} · ${snapshot.kills} εξουδετερώσεις · ${snapshot.gold} χρυσός
+      </p>
+      ${unlockSection}
+      <div class="dialog-actions">
+        <button class="primary-button" type="button" data-start>Ξανά</button>
+        <button class="secondary-button" type="button" data-menu>Επιστροφή στο μενού</button>
+      </div>
+    </section>
   `;
 }
 
